@@ -64,7 +64,6 @@ export default function ChatPage() {
   const [error, setError] = useState<string | null>(null);
 
   const { messages, sendMessage, status, regenerate, setMessages } = useChat({
-    api: "/api/chat",
     onError: (e) => {
       // Keep the UI simple: show a single error banner near the input.
       // This is especially helpful when OPENAI_API_KEY is missing in local dev.

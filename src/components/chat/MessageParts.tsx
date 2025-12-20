@@ -63,6 +63,8 @@ export function MessageParts({
   onRetry,
   ...props
 }: MessagePartsProps) {
+  type Part = UIMessage["parts"][number];
+
   const sources = message.parts.filter(
     (p) => p.type === "source-url" || p.type === "source-document"
   );
@@ -90,7 +92,32 @@ export function MessageParts({
     return -1;
   }, [message.parts, showActions]);
 
-  let displayedToolStepCounter = 0;
+  // Pre-compute which `step-start` parts should be rendered (only when the step contains tools),
+  // and assign stable “tool step” numbers without mutating during render.
+  const toolStepLabelByPartIndex = useMemo(() => {
+    let toolStep = 0;
+    const labels = new Map<number, number>();
+
+    for (let i = 0; i < message.parts.length; i++) {
+      const part = message.parts[i];
+      if (part?.type !== "step-start") continue;
+
+      const nextStepIdx = message.parts
+        .slice(i + 1)
+        .findIndex((p) => p.type === "step-start");
+      const endExclusive =
+        nextStepIdx === -1 ? message.parts.length : i + 1 + nextStepIdx;
+      const stepSlice = message.parts.slice(i + 1, endExclusive);
+      const stepHasTool = stepSlice.some((p) => isToolOrDynamicToolUIPart(p));
+
+      if (stepHasTool) {
+        toolStep += 1;
+        labels.set(i, toolStep);
+      }
+    }
+
+    return labels;
+  }, [message.parts]);
 
   return (
     <div className={cn("w-full", className)} {...props}>
@@ -114,7 +141,7 @@ export function MessageParts({
         </Sources>
       )}
 
-      {message.parts.map((part, i) => {
+      {message.parts.map((part: Part, i) => {
         switch (part.type) {
           case "text": {
             const isActionPart = showActions && i === lastTextPartIndex;
@@ -161,15 +188,24 @@ export function MessageParts({
           }
 
           case "reasoning": {
+            // Some providers/models emit a `reasoning` part without any readable text
+            // (e.g. only timing metadata). In that case, showing the collapsible UI
+            // is confusing—hide it unless there is content or it's actively streaming.
+            const hasReasoningText = part.text.trim().length > 0;
+            if (!hasReasoningText && part.state !== "streaming") {
+              return null;
+            }
+
             return (
               <Reasoning
                 key={`${message.id}-reasoning-${i}`}
                 className="w-full"
                 isStreaming={
+                  // Reasoning can stream as a dedicated part. Prefer the part's own state.
                   status === "streaming" &&
                   isLastMessage &&
-                  i === message.parts.length - 1 &&
-                  message.role === "assistant"
+                  message.role === "assistant" &&
+                  part.state === "streaming"
                 }
               >
                 <ReasoningTrigger />
@@ -182,21 +218,10 @@ export function MessageParts({
             // AI SDK inserts `step-start` parts for multi-step runs. Showing every
             // step is often noisy. We only show a separator if the *step* contains
             // a tool invocation.
-            const nextStepIdx = message.parts
-              .slice(i + 1)
-              .findIndex((p) => p.type === "step-start");
-            const endExclusive =
-              nextStepIdx === -1 ? message.parts.length : i + 1 + nextStepIdx;
-            const stepSlice = message.parts.slice(i + 1, endExclusive);
-            const stepHasTool = stepSlice.some((p) =>
-              isToolOrDynamicToolUIPart(p as any)
-            );
-
-            if (!stepHasTool) {
+            const label = toolStepLabelByPartIndex.get(i);
+            if (!label) {
               return null;
             }
-
-            displayedToolStepCounter += 1;
 
             return (
               <div
@@ -205,7 +230,7 @@ export function MessageParts({
               >
                 <div className="h-px flex-1 bg-border" />
                 <div className="text-muted-foreground text-xs">
-                  Tool step {displayedToolStepCounter}
+                  Tool step {label}
                 </div>
                 <div className="h-px flex-1 bg-border" />
               </div>
@@ -213,26 +238,23 @@ export function MessageParts({
           }
 
           default: {
-            if (isToolOrDynamicToolUIPart(part as any)) {
-              const toolName = getToolOrDynamicToolName(part as any);
-              const title =
-                "title" in (part as any) && (part as any).title
-                  ? (part as any).title
-                  : toolName;
+            if (isToolOrDynamicToolUIPart(part)) {
+              const toolName = getToolOrDynamicToolName(part);
+              const title = "title" in part && part.title ? part.title : toolName;
+              const headerType =
+                part.type === "dynamic-tool"
+                  ? (`tool-${toolName}` as const)
+                  : part.type;
 
               return (
-                <Fragment key={`${message.id}-${(part as any).toolCallId}-${i}`}>
+                <Fragment key={`${message.id}-${part.toolCallId}-${i}`}>
                   <Tool defaultOpen={false}>
-                    <ToolHeader
-                      state={(part as any).state}
-                      title={title}
-                      type={(part as any).type}
-                    />
+                    <ToolHeader state={part.state} title={title} type={headerType} />
                     <ToolContent>
-                      <ToolInput input={(part as any).input} />
+                      <ToolInput input={part.input} />
                       <ToolOutput
-                        errorText={(part as any).errorText}
-                        output={(part as any).output}
+                        errorText={part.errorText}
+                        output={part.output}
                       />
                     </ToolContent>
                   </Tool>

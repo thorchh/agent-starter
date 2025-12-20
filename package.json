@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ai-sdk/groq": "^2.0.33",
     "@ai-sdk/openai": "^2.0.88",
     "@ai-sdk/react": "^2.0.118",
     "@radix-ui/react-collapsible": "^1.1.12",

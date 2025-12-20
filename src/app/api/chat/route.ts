@@ -1,7 +1,7 @@
 import { convertToModelMessages, stepCountIs, streamText, type UIMessage } from "ai";
 
 import { assertAllowedModelId, getDefaultModelId } from "@/lib/ai/models";
-import { getOpenAIModel } from "@/lib/ai/provider";
+import { getModel } from "@/lib/ai/provider";
 import { SYSTEM_PROMPT } from "@/lib/ai/system-prompt";
 import { tools } from "@/lib/ai/tools";
 
@@ -22,11 +22,41 @@ export async function POST(req: Request) {
     // Security: do not allow arbitrary model IDs from the client.
     assertAllowedModelId(requestedModel);
 
+    // --- OpenAI "Reasoning Output" (reasoning summaries) ---
+    // Per OpenAI provider docs, reasoning summaries are only emitted when
+    // `providerOptions.openai.reasoningSummary` is set. When enabled, they stream as
+    // `part.type === "reasoning"` (and show up in AI Elements via `sendReasoning: true`).
+    // Ref: https://ai-sdk.dev/providers/ai-sdk-providers/openai
+    const openaiReasoningSummary = (process.env.OPENAI_REASONING_SUMMARY?.trim() ||
+      "auto") as "auto" | "detailed";
+    const openaiReasoningEffort = (process.env.OPENAI_REASONING_EFFORT?.trim() ||
+      "high") as "minimal" | "low" | "medium" | "high" | "none" | "xhigh";
+
+    const shouldEnableOpenAIReasoningSummary =
+      // OpenAI reasoning models (per docs/examples):
+      requestedModel.startsWith("openai/gpt-5") ||
+      requestedModel.startsWith("openai/o");
+
     const result = streamText({
-      model: getOpenAIModel(requestedModel),
+      model: getModel(requestedModel),
       system: SYSTEM_PROMPT,
       messages: convertToModelMessages(messages),
       tools,
+      // Provider-specific options:
+      // - OpenAI reasoning models (o-series) can be nudged to spend more compute on reasoning via `reasoningEffort`.
+      //   This typically increases reasoning *tokens* but does not necessarily expose chain-of-thought text.
+      // - To get *visible* "thinking output" in the stream, OpenAI requires `reasoningSummary`.
+      //   When enabled, summaries show up as stream events of type `reasoning`.
+      providerOptions: shouldEnableOpenAIReasoningSummary
+        ? {
+            openai: {
+              reasoningSummary: openaiReasoningSummary,
+              ...(requestedModel.startsWith("openai/o")
+                ? { reasoningEffort: openaiReasoningEffort }
+                : {}),
+            },
+          }
+        : undefined,
 
       // Multi-step tools:
       // The AI SDK adds `step-start` parts when multiple steps are used.
@@ -37,8 +67,13 @@ export async function POST(req: Request) {
       stopWhen: stepCountIs(5),
     });
 
-    // Use UI message streaming so the client receives `message.parts` for tools/files/reasoning/etc.
-    return result.toUIMessageStreamResponse();
+    // Use UI message streaming so the client receives `message.parts`.
+    // Opt-in to streaming "reasoning" + "sources" parts (as shown in AI Elements chatbot example).
+    // Ref: https://ai-sdk.dev/elements/examples/chatbot
+    return result.toUIMessageStreamResponse({
+      sendReasoning: true,
+      sendSources: true,
+    });
   } catch (err) {
     // In local dev, the most common failure is missing provider credentials.
     // Returning JSON here ensures the client gets a readable error and `useChat` can trigger `onError`.

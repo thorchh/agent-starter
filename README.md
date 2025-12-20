@@ -9,6 +9,7 @@ Polished starter template for building **agentic workflows** with:
 - Local conversation persistence (localStorage) with a DB-ready interface
 
 Docs references:
+
 - `https://ai-sdk.dev/elements/examples/chatbot`
 - `https://ai-sdk.dev/elements`
 - `https://ai-sdk.dev/docs/introduction`
@@ -16,46 +17,58 @@ Docs references:
 
 ### Quickstart
 
-1) Install deps
+1. Install deps
 
 ```bash
 pnpm install
 ```
 
-2) Create `.env.local`
+2. Create `.env.local`
 
 ```bash
 OPENAI_API_KEY=...
+GROQ_API_KEY=...
+# Optional (only needed if you select a `gateway/...` model in the UI):
+AI_GATEWAY_API_KEY=...
+# Optional: OpenAI "thinking output" (reasoning summaries) for o-series models.
+# See: https://ai-sdk.dev/providers/ai-sdk-providers/openai
+# OPENAI_REASONING_SUMMARY=auto        # 'auto' | 'detailed'
+# OPENAI_REASONING_EFFORT=high         # 'minimal' | 'low' | 'medium' | 'high'
 AI_MODEL=openai/gpt-5
 ```
 
-3) Run dev server
+3. Run dev server
 
 ```bash
 pnpm dev
 ```
 
 Open:
+
 - `http://localhost:3000/` (landing)
 - `http://localhost:3000/chat` (chat UI)
 
 ### Project structure
 
 #### Chat UI
+
 - `src/app/chat/page.tsx`: main chat screen (AI Elements `Conversation` + `PromptInput` + `MessageParts`)
 - `src/components/chat/MessageParts.tsx`: the single place where `message.parts` are rendered (text, attachments, tools, reasoning, sources)
 - `src/components/chat/ChatHeader.tsx`: minimal header (clear chat + title)
 
 #### API
+
 - `src/app/api/chat/route.ts`: streaming route handler using `streamText(...).toUIMessageStreamResponse()`
 
 #### AI layer
+
 - `src/lib/ai/models.ts`: model allowlist + normalization + defaults
 - `src/lib/ai/provider.ts`: OpenAI provider wiring
 - `src/lib/ai/system-prompt.ts`: system prompt (short, stable, tool-aware)
 - `src/lib/ai/tools/*`: server-side tool registry
 
 #### Persistence
+
 - `src/lib/chat/store/types.ts`: `ChatStore` interface (DB-upgradable)
 - `src/lib/chat/store/localStorageStore.ts`: current implementation
 - `src/lib/chat/store/dbStore.ts`: placeholder skeleton for future DB integration
@@ -66,13 +79,14 @@ The server uses AI SDK `streamText` with a tools object (`src/lib/ai/tools/index
 
 ### Add a new tool
 
-1) Create a new file in `src/lib/ai/tools/`, e.g. `myTool.ts` and export a `tool({ description, parameters, execute })`.
-2) Export it from `src/lib/ai/tools/index.ts`.
-3) Restart the dev server.
+1. Create a new file in `src/lib/ai/tools/`, e.g. `myTool.ts` and export a `tool({ description, parameters, execute })`.
+2. Export it from `src/lib/ai/tools/index.ts`.
+3. Restart the dev server.
 
 ### DB persistence upgrade path
 
 This starter keeps a `ChatStore` interface so moving from localStorage to a DB is a swap:
+
 - Implement `createDbStore()` in `src/lib/chat/store/dbStore.ts`.
 - Switch the store used in `src/app/chat/page.tsx`.
 - Add threads/users/auth as needed.
