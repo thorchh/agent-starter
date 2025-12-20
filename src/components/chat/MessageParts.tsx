@@ -9,6 +9,7 @@ import {
   MessageContent,
   MessageResponse,
 } from "@/components/ai-elements/message";
+import { MarkdownWithCitations } from "@/components/chat/MarkdownWithCitations";
 import {
   Reasoning,
   ReasoningContent,
@@ -68,6 +69,18 @@ export function MessageParts({
   const sources = message.parts.filter(
     (p) => p.type === "source-url" || p.type === "source-document"
   );
+
+  const citationSources = useMemo(() => {
+    return sources
+      .map((part) => {
+        if ("url" in part) {
+          return { url: part.url, title: part.title ?? part.url };
+        }
+        // `source-document` has no URL; skip for inline citations.
+        return null;
+      })
+      .filter((x): x is { url: string; title: string } => Boolean(x));
+  }, [sources]);
 
   const showActions = message.role === "assistant" && isLastMessage;
 
@@ -149,7 +162,15 @@ export function MessageParts({
             return (
               <Message key={`${message.id}-text-${i}`} from={message.role}>
                 <MessageContent>
-                  <MessageResponse>{part.text}</MessageResponse>
+                  {message.role === "assistant" && citationSources.length > 0 ? (
+                    <MarkdownWithCitations
+                      markdown={part.text}
+                      sources={citationSources}
+                    />
+                  ) : (
+                    // Default markdown renderer (AI Elements Streamdown wrapper).
+                    <MessageResponse>{part.text}</MessageResponse>
+                  )}
                 </MessageContent>
 
                 {isActionPart && (

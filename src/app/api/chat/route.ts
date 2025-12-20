@@ -1,4 +1,5 @@
 import { convertToModelMessages, stepCountIs, streamText, type UIMessage } from "ai";
+import { openai } from "@ai-sdk/openai";
 
 import { assertAllowedModelId, getDefaultModelId } from "@/lib/ai/models";
 import { getModel } from "@/lib/ai/provider";
@@ -11,6 +12,7 @@ export const maxDuration = 30;
 type ChatRequestBody = {
   messages: UIMessage[];
   model?: string;
+  useSearch?: boolean;
 };
 
 export async function POST(req: Request) {
@@ -18,9 +20,15 @@ export async function POST(req: Request) {
     const body = (await req.json()) as ChatRequestBody;
     const messages = body.messages ?? [];
     const requestedModel = body.model?.trim() || getDefaultModelId();
+    const useSearch = Boolean(body.useSearch);
 
     // Security: do not allow arbitrary model IDs from the client.
     assertAllowedModelId(requestedModel);
+
+    // Feature flag: keep reasoning off by default (some orgs disallow it).
+    // Set ENABLE_REASONING=true later to re-enable reasoning streaming + summaries.
+    const enableReasoning =
+      (process.env.ENABLE_REASONING ?? "").toLowerCase() === "true";
 
     // --- OpenAI "Reasoning Output" (reasoning summaries) ---
     // Per OpenAI provider docs, reasoning summaries are only emitted when
@@ -33,15 +41,36 @@ export async function POST(req: Request) {
       "high") as "minimal" | "low" | "medium" | "high" | "none" | "xhigh";
 
     const shouldEnableOpenAIReasoningSummary =
+      enableReasoning &&
       // OpenAI reasoning models (per docs/examples):
-      requestedModel.startsWith("openai/gpt-5") ||
-      requestedModel.startsWith("openai/o");
+      (requestedModel.startsWith("openai/gpt-5") ||
+        requestedModel.startsWith("openai/o"));
+
+    // --- Search (opt-in from the UI) ---
+    // The OpenAI provider defines a built-in `web_search` tool.
+    // We only register it when the user enables Search to keep the default agent minimal.
+    const canUseOpenAIWebSearch =
+      requestedModel.startsWith("openai/") ||
+      requestedModel.startsWith("gateway/openai/");
+
+    const requestTools = {
+      ...tools,
+      ...(useSearch && canUseOpenAIWebSearch
+        ? { web_search: openai.tools.webSearch() }
+        : {}),
+    };
+
+    const system =
+      SYSTEM_PROMPT +
+      (useSearch && canUseOpenAIWebSearch
+        ? "\n\nSearch is enabled. You may use the `web_search` tool when helpful. When you cite sources, add inline markers like [1], [2] that correspond to the source list."
+        : "");
 
     const result = streamText({
       model: getModel(requestedModel),
-      system: SYSTEM_PROMPT,
+      system,
       messages: convertToModelMessages(messages),
-      tools,
+      tools: requestTools,
       // Provider-specific options:
       // - OpenAI reasoning models (o-series) can be nudged to spend more compute on reasoning via `reasoningEffort`.
       //   This typically increases reasoning *tokens* but does not necessarily expose chain-of-thought text.
@@ -71,7 +100,7 @@ export async function POST(req: Request) {
     // Opt-in to streaming "reasoning" + "sources" parts (as shown in AI Elements chatbot example).
     // Ref: https://ai-sdk.dev/elements/examples/chatbot
     return result.toUIMessageStreamResponse({
-      sendReasoning: true,
+      sendReasoning: enableReasoning,
       sendSources: true,
     });
   } catch (err) {

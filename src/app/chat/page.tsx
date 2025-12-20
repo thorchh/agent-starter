@@ -38,7 +38,7 @@ import {
 } from "@/components/ai-elements/suggestion";
 import { ChatHeader } from "@/components/chat/ChatHeader";
 import { MessageParts } from "@/components/chat/MessageParts";
-import { RefreshCcwIcon } from "lucide-react";
+import { RefreshCcwIcon, SearchIcon } from "lucide-react";
 import { MODEL_OPTIONS } from "@/lib/ai/models";
 import { createLocalStorageStore } from "@/lib/chat/store/localStorageStore";
 import type { ChatThreadState } from "@/lib/chat/store/types";
@@ -60,6 +60,7 @@ const SUGGESTIONS = [
 export default function ChatPage() {
   const [input, setInput] = useState("");
   const [model, setModel] = useState<string>(MODEL_OPTIONS[0]!.id);
+  const [useSearch, setUseSearch] = useState(false);
   const [hasLoadedFromStore, setHasLoadedFromStore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -120,7 +121,7 @@ export default function ChatPage() {
         files: message.files,
       },
       {
-        body: { model },
+        body: { model, useSearch },
       }
     );
 
@@ -228,6 +229,16 @@ export default function ChatPage() {
                   ))}
                 </PromptInputSelectContent>
               </PromptInputSelect>
+
+                  <PromptInputButton
+                    aria-pressed={useSearch}
+                    onClick={() => setUseSearch((v) => !v)}
+                    type="button"
+                    variant={useSearch ? "secondary" : "ghost"}
+                  >
+                    <SearchIcon className="size-4" />
+                    <span>Search</span>
+                  </PromptInputButton>
 
               <PromptInputButton
                 onClick={() => regenerate()}

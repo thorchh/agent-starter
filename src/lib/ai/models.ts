@@ -35,6 +35,7 @@ export const MODEL_OPTIONS: ModelOption[] = [
   { label: "o4-mini", id: "openai/o4-mini" },
   // Vercel AI Gateway (server-side only): useful when you want a single API key and a unified model catalog.
   // NOTE: Requires AI Gateway credentials. See README for env vars.
+  { label: "GPT-5 (AI Gateway)", id: "gateway/openai/gpt-5" },
   { label: "DeepSeek R1 (AI Gateway)", id: "gateway/deepseek-r1" },
   // Gemini via AI Gateway (model id can include provider prefixes; we pass through after `gateway/`).
   // If your gateway catalog uses a different ID, change this string to match it.
