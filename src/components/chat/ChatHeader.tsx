@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { Trash2Icon } from "lucide-react";
 
 export type ChatHeaderProps = ComponentProps<"header"> & {
@@ -10,6 +10,7 @@ export type ChatHeaderProps = ComponentProps<"header"> & {
   subtitle?: string;
   onClear?: () => void;
   canClear?: boolean;
+  actions?: ReactNode;
 };
 
 /**
@@ -29,6 +30,7 @@ export function ChatHeader({
   subtitle = "Streaming chat + tools, built with AI Elements",
   onClear,
   canClear = true,
+  actions,
   ...props
 }: ChatHeaderProps) {
   return (
@@ -44,18 +46,21 @@ export function ChatHeader({
         <div className="truncate text-muted-foreground text-xs">{subtitle}</div>
       </div>
 
-      {onClear && (
-        <Button
-          disabled={!canClear}
-          onClick={onClear}
-          size="sm"
-          type="button"
-          variant="ghost"
-        >
-          <Trash2Icon className="mr-2 size-4" />
-          Clear
-        </Button>
-      )}
+      <div className="flex items-center gap-2">
+        {actions}
+        {onClear && (
+          <Button
+            disabled={!canClear}
+            onClick={onClear}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            <Trash2Icon className="mr-2 size-4" />
+            Clear
+          </Button>
+        )}
+      </div>
     </header>
   );
 }

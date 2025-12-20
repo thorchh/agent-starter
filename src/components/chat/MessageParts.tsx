@@ -11,6 +11,14 @@ import {
 } from "@/components/ai-elements/message";
 import { MarkdownWithCitations } from "@/components/chat/MarkdownWithCitations";
 import {
+  ChainOfThought,
+  ChainOfThoughtContent,
+  ChainOfThoughtHeader,
+  ChainOfThoughtSearchResult,
+  ChainOfThoughtSearchResults,
+  ChainOfThoughtStep,
+} from "@/components/ai-elements/chain-of-thought";
+import {
   Reasoning,
   ReasoningContent,
   ReasoningTrigger,
@@ -43,6 +51,14 @@ export type MessagePartsProps = ComponentProps<"div"> & {
   status: ChatStatus;
   isLastMessage: boolean;
   onRetry?: () => void;
+  /**
+   * When true, render tool invocations in a verbose, debug-friendly format:
+   * - tool step separators
+   * - full input/output JSON blocks
+   *
+   * When false (default), render a cleaner, user-facing presentation.
+   */
+  debug?: boolean;
 };
 
 /**
@@ -62,6 +78,7 @@ export function MessageParts({
   status,
   isLastMessage,
   onRetry,
+  debug = false,
   ...props
 }: MessagePartsProps) {
   type Part = UIMessage["parts"][number];
@@ -83,6 +100,16 @@ export function MessageParts({
   }, [sources]);
 
   const showActions = message.role === "assistant" && isLastMessage;
+
+  const toolParts = useMemo(
+    () => message.parts.filter((p) => isToolOrDynamicToolUIPart(p)),
+    [message.parts]
+  );
+
+  const firstToolPartIndex = useMemo(() => {
+    if (toolParts.length === 0) return -1;
+    return message.parts.findIndex((p) => isToolOrDynamicToolUIPart(p));
+  }, [message.parts, toolParts.length]);
 
   // Compute a “copyable” assistant string from all text parts in this message.
   const copyText = useMemo(() => {
@@ -131,6 +158,45 @@ export function MessageParts({
 
     return labels;
   }, [message.parts]);
+
+  const toolSummary = useMemo(() => {
+    if (message.role !== "assistant" || toolParts.length === 0) return null;
+
+    const steps = toolParts.map((part) => {
+      const name = getToolOrDynamicToolName(part);
+      const title = "title" in part && part.title ? part.title : name;
+
+      const status: "complete" | "active" | "pending" = (() => {
+        if (part.state === "output-available" || part.state === "output-error") {
+          return "complete";
+        }
+        if (part.state === "input-streaming" || part.state === "input-available") {
+          return "active";
+        }
+        return "pending";
+      })();
+
+      let description: string | undefined;
+      if (name === "web_search" && part.input && typeof part.input === "object") {
+        const action = (part.input as { action?: { query?: string } }).action;
+        if (action?.query) description = action.query;
+      }
+
+      return { name, title, status, description };
+    });
+
+    const sourceHostnames = citationSources
+      .map((s) => {
+        try {
+          return new URL(s.url).hostname;
+        } catch {
+          return null;
+        }
+      })
+      .filter((x): x is string => Boolean(x));
+
+    return { steps, sourceHostnames };
+  }, [citationSources, message.role, toolParts]);
 
   return (
     <div className={cn("w-full", className)} {...props}>
@@ -236,9 +302,13 @@ export function MessageParts({
           }
 
           case "step-start": {
-            // AI SDK inserts `step-start` parts for multi-step runs. Showing every
-            // step is often noisy. We only show a separator if the *step* contains
-            // a tool invocation.
+            // AI SDK inserts `step-start` parts for multi-step runs.
+            // For user-facing UI we hide these entirely (they're mostly a debugging artifact).
+            if (!debug) {
+              return null;
+            }
+
+            // In debug mode we show a separator only if the step contains a tool invocation.
             const label = toolStepLabelByPartIndex.get(i);
             if (!label) {
               return null;
@@ -260,6 +330,45 @@ export function MessageParts({
 
           default: {
             if (isToolOrDynamicToolUIPart(part)) {
+              // User-facing: hide raw tool blocks; show a clean ChainOfThought summary once.
+              if (!debug) {
+                if (i !== firstToolPartIndex || !toolSummary) return null;
+                return (
+                  <ChainOfThought
+                    key={`${message.id}-tool-summary`}
+                    className="w-full"
+                    defaultOpen={false}
+                  >
+                    <ChainOfThoughtHeader>
+                      Steps ({toolSummary.steps.length})
+                    </ChainOfThoughtHeader>
+                    <ChainOfThoughtContent>
+                      {toolSummary.steps.map((s, idx) => (
+                        <ChainOfThoughtStep
+                          key={`${message.id}-toolstep-${idx}`}
+                          label={s.title}
+                          description={s.description}
+                          status={s.status}
+                        >
+                          {s.name === "web_search" &&
+                            toolSummary.sourceHostnames.length > 0 && (
+                              <ChainOfThoughtSearchResults>
+                                {toolSummary.sourceHostnames
+                                  .slice(0, 6)
+                                  .map((h) => (
+                                    <ChainOfThoughtSearchResult key={h}>
+                                      {h}
+                                    </ChainOfThoughtSearchResult>
+                                  ))}
+                              </ChainOfThoughtSearchResults>
+                            )}
+                        </ChainOfThoughtStep>
+                      ))}
+                    </ChainOfThoughtContent>
+                  </ChainOfThought>
+                );
+              }
+
               const toolName = getToolOrDynamicToolName(part);
               const title = "title" in part && part.title ? part.title : toolName;
               const headerType =

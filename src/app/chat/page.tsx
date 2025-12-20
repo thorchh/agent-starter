@@ -36,9 +36,16 @@ import {
   Suggestion,
   Suggestions,
 } from "@/components/ai-elements/suggestion";
+import {
+  Context,
+  ContextContent,
+  ContextContentBody,
+  ContextContentHeader,
+  ContextTrigger,
+} from "@/components/ai-elements/context";
 import { ChatHeader } from "@/components/chat/ChatHeader";
 import { MessageParts } from "@/components/chat/MessageParts";
-import { RefreshCcwIcon, SearchIcon } from "lucide-react";
+import { BugIcon, RefreshCcwIcon, SearchIcon } from "lucide-react";
 import { MODEL_OPTIONS } from "@/lib/ai/models";
 import { createLocalStorageStore } from "@/lib/chat/store/localStorageStore";
 import type { ChatThreadState } from "@/lib/chat/store/types";
@@ -61,6 +68,7 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [model, setModel] = useState<string>(MODEL_OPTIONS[0]!.id);
   const [useSearch, setUseSearch] = useState(false);
+  const [debug, setDebug] = useState(false);
   const [hasLoadedFromStore, setHasLoadedFromStore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,6 +82,19 @@ export default function ChatPage() {
 
   const canClear = messages.length > 0 && status === "ready";
   const store = useMemo(() => createLocalStorageStore(), []);
+
+  const contextEstimate = useMemo(() => {
+    // This is a lightweight starter: we don't yet persist/stream real token usage.
+    // Provide a rough estimate so the Context UI is useful immediately.
+    const joined = messages
+      .flatMap((m) => m.parts)
+      .filter((p) => p.type === "text")
+      .map((p) => p.text)
+      .join("\n");
+    const usedTokens = Math.ceil(joined.length / 4); // common heuristic
+    const maxTokens = 128_000; // conservative default; can be made model-aware later
+    return { usedTokens, maxTokens };
+  }, [messages]);
 
   // Load persisted conversation once on mount (client-only).
   useEffect(() => {
@@ -137,6 +158,25 @@ export default function ChatPage() {
           setMessages([]);
           store.clear();
         }}
+        actions={
+          <>
+            <Context
+              maxTokens={contextEstimate.maxTokens}
+              usedTokens={contextEstimate.usedTokens}
+            >
+              <ContextTrigger />
+              <ContextContent>
+                <ContextContentHeader />
+                <ContextContentBody>
+                  <div className="text-muted-foreground text-xs">
+                    Token usage is an estimate in this starter. You can stream real
+                    usage later via `messageMetadata` in AI SDK.
+                  </div>
+                </ContextContentBody>
+              </ContextContent>
+            </Context>
+          </>
+        }
         subtitle="AI Elements UI • AI SDK streaming • server-side tools"
         title="Agent Starter"
       />
@@ -167,6 +207,7 @@ export default function ChatPage() {
             messages.map((message) => (
               <MessageParts
                 key={message.id}
+                debug={debug}
                 isLastMessage={message.id === messages.at(-1)?.id}
                 message={message}
                 onRetry={message.role === "assistant" ? regenerate : undefined}
@@ -238,6 +279,16 @@ export default function ChatPage() {
                   >
                     <SearchIcon className="size-4" />
                     <span>Search</span>
+                  </PromptInputButton>
+
+                  <PromptInputButton
+                    aria-pressed={debug}
+                    onClick={() => setDebug((v) => !v)}
+                    type="button"
+                    variant={debug ? "secondary" : "ghost"}
+                  >
+                    <BugIcon className="size-4" />
+                    <span>Debug</span>
                   </PromptInputButton>
 
               <PromptInputButton
