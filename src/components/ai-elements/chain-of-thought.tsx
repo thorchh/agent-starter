@@ -65,7 +65,7 @@ export const ChainOfThought = memo(
     return (
       <ChainOfThoughtContext.Provider value={chainOfThoughtContext}>
         <div
-          className={cn("not-prose max-w-prose space-y-4", className)}
+          className={cn("not-prose w-full space-y-4", className)}
           {...props}
         >
           {children}
@@ -113,6 +113,11 @@ export type ChainOfThoughtStepProps = ComponentProps<"div"> & {
   label: ReactNode;
   description?: ReactNode;
   status?: "complete" | "active" | "pending";
+  /**
+   * Hide the vertical connector line (useful for the last step).
+   * Defaults to false to preserve the original AI Elements look.
+   */
+  isLast?: boolean;
 };
 
 export const ChainOfThoughtStep = memo(
@@ -122,6 +127,7 @@ export const ChainOfThoughtStep = memo(
     label,
     description,
     status = "complete",
+    isLast = false,
     children,
     ...props
   }: ChainOfThoughtStepProps) => {
@@ -143,7 +149,9 @@ export const ChainOfThoughtStep = memo(
       >
         <div className="relative mt-0.5">
           <Icon className="size-4" />
-          <div className="-mx-px absolute top-7 bottom-0 left-1/2 w-px bg-border" />
+          {!isLast && (
+            <div className="-mx-px absolute top-7 bottom-0 left-1/2 w-px bg-border" />
+          )}
         </div>
         <div className="flex-1 space-y-2 overflow-hidden">
           <div>{label}</div>

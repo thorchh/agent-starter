@@ -88,15 +88,18 @@ export function MessageParts({
   );
 
   const citationSources = useMemo(() => {
-    return sources
-      .map((part) => {
-        if ("url" in part) {
-          return { url: part.url, title: part.title ?? part.url };
-        }
-        // `source-document` has no URL; skip for inline citations.
-        return null;
-      })
-      .filter((x): x is { url: string; title: string } => Boolean(x));
+    // De-dupe by URL while preserving first-seen order (providers can repeat sources).
+    const seen = new Set<string>();
+    const out: Array<{ url: string; title: string }> = [];
+
+    for (const part of sources) {
+      if (!("url" in part)) continue; // `source-document` has no URL; skip for inline citations.
+      if (seen.has(part.url)) continue;
+      seen.add(part.url);
+      out.push({ url: part.url, title: part.title ?? part.url });
+    }
+
+    return out;
   }, [sources]);
 
   const showActions = message.role === "assistant" && isLastMessage;
@@ -159,51 +162,30 @@ export function MessageParts({
     return labels;
   }, [message.parts]);
 
-  const toolSummary = useMemo(() => {
-    if (message.role !== "assistant" || toolParts.length === 0) return null;
-
-    const steps = toolParts.map((part) => {
-      const name = getToolOrDynamicToolName(part);
-      const title = "title" in part && part.title ? part.title : name;
-
-      const status: "complete" | "active" | "pending" = (() => {
-        if (part.state === "output-available" || part.state === "output-error") {
-          return "complete";
-        }
-        if (part.state === "input-streaming" || part.state === "input-available") {
-          return "active";
-        }
-        return "pending";
-      })();
-
-      let description: string | undefined;
-      if (name === "web_search" && part.input && typeof part.input === "object") {
-        const action = (part.input as { action?: { query?: string } }).action;
-        if (action?.query) description = action.query;
+  const uniqueSourcesForHeader = useMemo(() => {
+    // Keep the Sources UI clean by de-duping URL sources and documents.
+    const seen = new Set<string>();
+    const out: typeof sources = [];
+    for (const part of sources) {
+      if ("url" in part) {
+        if (seen.has(part.url)) continue;
+        seen.add(part.url);
+      } else {
+        const key = `${part.mediaType}:${part.title}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
       }
-
-      return { name, title, status, description };
-    });
-
-    const sourceHostnames = citationSources
-      .map((s) => {
-        try {
-          return new URL(s.url).hostname;
-        } catch {
-          return null;
-        }
-      })
-      .filter((x): x is string => Boolean(x));
-
-    return { steps, sourceHostnames };
-  }, [citationSources, message.role, toolParts]);
+      out.push(part);
+    }
+    return out;
+  }, [sources]);
 
   return (
     <div className={cn("w-full", className)} {...props}>
-      {message.role === "assistant" && sources.length > 0 && (
+      {message.role === "assistant" && uniqueSourcesForHeader.length > 0 && (
         <Sources>
-          <SourcesTrigger count={sources.length} />
-          {sources.map((part, i) => (
+          <SourcesTrigger count={uniqueSourcesForHeader.length} />
+          {uniqueSourcesForHeader.map((part, i) => (
             <SourcesContent key={`${message.id}-source-${i}`}>
               {"url" in part ? (
                 <Source href={part.url} title={part.title ?? part.url} />
@@ -332,38 +314,105 @@ export function MessageParts({
             if (isToolOrDynamicToolUIPart(part)) {
               // User-facing: hide raw tool blocks; show a clean ChainOfThought summary once.
               if (!debug) {
-                if (i !== firstToolPartIndex || !toolSummary) return null;
+                if (i !== firstToolPartIndex) return null;
+
+                // Render a single collapsible "thread" that lists each tool invocation as its own step
+                // (we intentionally do NOT group or collapse multiple searches).
                 return (
                   <ChainOfThought
                     key={`${message.id}-tool-summary`}
-                    className="w-full"
+                    className="w-full pb-2"
                     defaultOpen={false}
                   >
-                    <ChainOfThoughtHeader>
-                      Steps ({toolSummary.steps.length})
-                    </ChainOfThoughtHeader>
+                    <ChainOfThoughtHeader>Thought process</ChainOfThoughtHeader>
                     <ChainOfThoughtContent>
-                      {toolSummary.steps.map((s, idx) => (
-                        <ChainOfThoughtStep
-                          key={`${message.id}-toolstep-${idx}`}
-                          label={s.title}
-                          description={s.description}
-                          status={s.status}
-                        >
-                          {s.name === "web_search" &&
-                            toolSummary.sourceHostnames.length > 0 && (
+                      {toolParts.map((tp, idx) => {
+                        const toolName = getToolOrDynamicToolName(tp);
+
+                        const label =
+                          toolName === "web_search"
+                            ? "Web search"
+                            : toolName === "getTime"
+                              ? "Get server time"
+                              : toolName === "getWeather"
+                                ? "Check weather"
+                                : toolName === "summarizeAttachments"
+                                  ? "Summarize attachments"
+                                  : toolName.replaceAll("_", " ");
+
+                        const status: "complete" | "active" | "pending" = (() => {
+                          if (
+                            tp.state === "output-available" ||
+                            tp.state === "output-error"
+                          ) {
+                            return "complete";
+                          }
+                          if (
+                            tp.state === "input-streaming" ||
+                            tp.state === "input-available"
+                          ) {
+                            return "active";
+                          }
+                          return "pending";
+                        })();
+
+                        const query =
+                          toolName === "web_search" &&
+                          tp.input &&
+                          typeof tp.input === "object"
+                            ? (tp.input as { action?: { query?: string } }).action
+                                ?.query
+                            : undefined;
+
+                        // For web search, show *that call's* domains (not global sources),
+                        // so multiple searches feel like a "thread" of actions.
+                        const hostnames =
+                          toolName === "web_search" &&
+                          tp.output &&
+                          typeof tp.output === "object"
+                            ? (
+                                (tp.output as {
+                                  sources?: Array<{ type?: string; url?: string }>;
+                                }).sources ?? []
+                              )
+                                .map((s) => {
+                                  if (s?.type !== "url" || !s.url) return null;
+                                  try {
+                                    return new URL(s.url).hostname;
+                                  } catch {
+                                    return null;
+                                  }
+                                })
+                                .filter((h): h is string => Boolean(h))
+                            : [];
+
+                        // De-dupe hostnames while preserving order for this step.
+                        const seen = new Set<string>();
+                        const uniqHosts = hostnames.filter((h) => {
+                          if (seen.has(h)) return false;
+                          seen.add(h);
+                          return true;
+                        });
+
+                        return (
+                          <ChainOfThoughtStep
+                            key={`${message.id}-toolstep-${idx}`}
+                            label={label}
+                            description={query}
+                            status={status}
+                          >
+                            {uniqHosts.length > 0 && (
                               <ChainOfThoughtSearchResults>
-                                {toolSummary.sourceHostnames
-                                  .slice(0, 6)
-                                  .map((h) => (
-                                    <ChainOfThoughtSearchResult key={h}>
-                                      {h}
-                                    </ChainOfThoughtSearchResult>
-                                  ))}
+                                {uniqHosts.slice(0, 8).map((h) => (
+                                  <ChainOfThoughtSearchResult key={h}>
+                                    {h}
+                                  </ChainOfThoughtSearchResult>
+                                ))}
                               </ChainOfThoughtSearchResults>
                             )}
-                        </ChainOfThoughtStep>
-                      ))}
+                          </ChainOfThoughtStep>
+                        );
+                      })}
                     </ChainOfThoughtContent>
                   </ChainOfThought>
                 );
