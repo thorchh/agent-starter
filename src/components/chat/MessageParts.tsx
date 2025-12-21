@@ -52,7 +52,7 @@ import {
   WrenchIcon,
 } from "lucide-react";
 import type { ComponentProps } from "react";
-import { Fragment, useMemo } from "react";
+import { Fragment, useMemo, useState } from "react";
 
 export type MessagePartsProps = ComponentProps<"div"> & {
   message: UIMessage;
@@ -121,6 +121,45 @@ export function MessageParts({
     if (toolParts.length === 0) return -1;
     return message.parts.findIndex((p) => isToolOrDynamicToolUIPart(p));
   }, [message.parts, toolParts.length]);
+
+  const lastToolPartIndex = useMemo(() => {
+    for (let i = message.parts.length - 1; i >= 0; i--) {
+      if (isToolOrDynamicToolUIPart(message.parts[i])) return i;
+    }
+    return -1;
+  }, [message.parts]);
+
+  const hasStreamingFinalTextAfterTools = useMemo(() => {
+    // If the assistant is streaming text after tools completed, we treat that as
+    // "final answer streaming" and auto-collapse the thought thread.
+    if (lastToolPartIndex === -1) return false;
+    for (let i = lastToolPartIndex + 1; i < message.parts.length; i++) {
+      const p = message.parts[i];
+      if (p?.type === "text" && p.state === "streaming") return true;
+    }
+    return false;
+  }, [lastToolPartIndex, message.parts]);
+
+  // --- Thought thread (ChainOfThought) open/close behavior ---
+  // We avoid effects here (linted in this repo) and instead derive open state:
+  // - Auto-open while tools are running.
+  // - Auto-collapse when final text starts streaming.
+  // - Allow user override by clicking the trigger.
+  const [thoughtOpenOverride, setThoughtOpenOverride] = useState<boolean | null>(
+    null
+  );
+
+  const shouldShowThoughtThread =
+    !debug && message.role === "assistant" && isLastMessage && toolParts.length > 0;
+
+  const autoThoughtOpen =
+    shouldShowThoughtThread &&
+    (status === "submitted" || status === "streaming") &&
+    !hasStreamingFinalTextAfterTools;
+
+  const thoughtOpen = shouldShowThoughtThread
+    ? (thoughtOpenOverride ?? autoThoughtOpen)
+    : false;
 
   // Compute a “copyable” assistant string from all text parts in this message.
   const copyText = useMemo(() => {
@@ -330,7 +369,8 @@ export function MessageParts({
                   <ChainOfThought
                     key={`${message.id}-tool-summary`}
                     className="w-full pb-2"
-                    defaultOpen={false}
+                    onOpenChange={setThoughtOpenOverride}
+                    open={thoughtOpen}
                   >
                     <ChainOfThoughtHeader>Thought process</ChainOfThoughtHeader>
                     <ChainOfThoughtContent>
