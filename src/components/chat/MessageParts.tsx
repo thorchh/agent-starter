@@ -42,7 +42,15 @@ import {
   getToolOrDynamicToolName,
   isToolOrDynamicToolUIPart,
 } from "ai";
-import { CopyIcon, RefreshCcwIcon } from "lucide-react";
+import {
+  CloudSunIcon,
+  ClockIcon,
+  CopyIcon,
+  FileTextIcon,
+  RefreshCcwIcon,
+  SearchIcon,
+  WrenchIcon,
+} from "lucide-react";
 import type { ComponentProps } from "react";
 import { Fragment, useMemo } from "react";
 
@@ -328,9 +336,28 @@ export function MessageParts({
                     <ChainOfThoughtContent>
                       {toolParts.map((tp, idx) => {
                         const toolName = getToolOrDynamicToolName(tp);
+                        const isWebSearch = toolName === "web_search";
+
+                        // For OpenAI's built-in web search tool, the model may use actions like
+                        // `openPage` / `findInPage`. Those are useful for debugging but feel like
+                        // “empty steps” in a user-facing thought thread, so we hide them.
+                        const webSearchActionType =
+                          isWebSearch &&
+                          tp.input &&
+                          typeof tp.input === "object" &&
+                          "action" in tp.input
+                            ? (
+                                tp.input as {
+                                  action?: { type?: string; query?: string; url?: string | null };
+                                }
+                              ).action?.type
+                            : undefined;
+                        if (isWebSearch && webSearchActionType && webSearchActionType !== "search") {
+                          return null;
+                        }
 
                         const label =
-                          toolName === "web_search"
+                          isWebSearch
                             ? "Web search"
                             : toolName === "getTime"
                               ? "Get server time"
@@ -339,6 +366,17 @@ export function MessageParts({
                                 : toolName === "summarizeAttachments"
                                   ? "Summarize attachments"
                                   : toolName.replaceAll("_", " ");
+
+                        const Icon =
+                          toolName === "web_search"
+                            ? SearchIcon
+                            : toolName === "getTime"
+                              ? ClockIcon
+                              : toolName === "getWeather"
+                                ? CloudSunIcon
+                                : toolName === "summarizeAttachments"
+                                  ? FileTextIcon
+                                  : WrenchIcon;
 
                         const status: "complete" | "active" | "pending" = (() => {
                           if (
@@ -357,7 +395,7 @@ export function MessageParts({
                         })();
 
                         const query =
-                          toolName === "web_search" &&
+                          isWebSearch &&
                           tp.input &&
                           typeof tp.input === "object"
                             ? (tp.input as { action?: { query?: string } }).action
@@ -367,7 +405,7 @@ export function MessageParts({
                         // For web search, show *that call's* domains (not global sources),
                         // so multiple searches feel like a "thread" of actions.
                         const hostnames =
-                          toolName === "web_search" &&
+                          isWebSearch &&
                           tp.output &&
                           typeof tp.output === "object"
                             ? (
@@ -397,6 +435,8 @@ export function MessageParts({
                         return (
                           <ChainOfThoughtStep
                             key={`${message.id}-toolstep-${idx}`}
+                            className={idx === toolParts.length - 1 ? "pb-0" : "pb-3"}
+                            icon={Icon}
                             label={label}
                             description={query}
                             status={status}
@@ -410,6 +450,20 @@ export function MessageParts({
                                 ))}
                               </ChainOfThoughtSearchResults>
                             )}
+                            {/* If the tool completed but no sources were returned, make that explicit. */}
+                            {toolName === "web_search" &&
+                              status === "complete" &&
+                              uniqHosts.length === 0 && (
+                                <div className="text-muted-foreground text-xs">
+                                  No sources returned for this step.
+                                </div>
+                              )}
+                            {/* Surface tool errors without dumping full debug output. */}
+                            {"errorText" in tp && tp.errorText ? (
+                              <div className="text-destructive text-xs">
+                                {tp.errorText}
+                              </div>
+                            ) : null}
                           </ChainOfThoughtStep>
                         );
                       })}

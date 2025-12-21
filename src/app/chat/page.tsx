@@ -150,40 +150,27 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="relative mx-auto flex h-screen w-full max-w-4xl flex-col p-6">
-      <ChatHeader
-        className="mb-4 rounded-lg border bg-card/80 backdrop-blur"
-        canClear={canClear}
-        onClear={() => {
-          setMessages([]);
-          store.clear();
-        }}
-        actions={
-          <>
-            <Context
-              maxTokens={contextEstimate.maxTokens}
-              usedTokens={contextEstimate.usedTokens}
-            >
-              <ContextTrigger />
-              <ContextContent>
-                <ContextContentHeader />
-                <ContextContentBody>
-                  <div className="text-muted-foreground text-xs">
-                    Token usage is an estimate in this starter. You can stream real
-                    usage later via `messageMetadata` in AI SDK.
-                  </div>
-                </ContextContentBody>
-              </ContextContent>
-            </Context>
-          </>
-        }
-        subtitle="AI Elements UI • AI SDK streaming • server-side tools"
-        title="Agent Starter"
-      />
+    <div className="flex min-h-screen w-full flex-col bg-background">
+      {/* Pinned header (app-like) */}
+      <div className="sticky top-0 z-20 w-full border-b bg-background">
+        <div className="mx-auto w-full max-w-4xl px-4 py-3 md:px-6">
+          <ChatHeader
+            canClear={canClear}
+            className="px-0 py-0"
+            onClear={() => {
+              setMessages([]);
+              store.clear();
+            }}
+            subtitle="AI Elements UI • AI SDK streaming • server-side tools"
+            title="Agent Starter"
+          />
+        </div>
+      </div>
 
-      <div className="flex min-h-0 flex-1 flex-col">
-        <Conversation className="h-full rounded-lg border">
-          <ConversationContent className="gap-6 p-6">
+      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-4 md:px-6">
+        <Conversation className="flex-1">
+          {/* Add bottom padding so the floating input bubble never covers content */}
+          <ConversationContent className="gap-6 px-0 py-6 pb-32">
           {messages.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-6 py-10">
               <ConversationEmptyState
@@ -229,81 +216,100 @@ export default function ChatPage() {
           </div>
         )}
 
-        <PromptInput
-          className="mx-auto mt-4 w-full max-w-3xl"
-          globalDrop
-          multiple
-          onSubmit={handleSubmit}
-        >
-          <PromptInputHeader>
-            <PromptInputAttachments>
-              {(attachment) => <PromptInputAttachment data={attachment} />}
-            </PromptInputAttachments>
-          </PromptInputHeader>
+        {/* Floating input bubble like ChatGPT (no blur / no bottom background). */}
+        <div className="-mx-4 sticky bottom-0 z-10 mt-4 bg-transparent px-4 pb-6 pt-2 md:-mx-6 md:px-6">
+          <PromptInput
+            className="mx-auto w-full max-w-3xl rounded-2xl border bg-card shadow-lg ring-1 ring-border/50 focus-within:ring-2 focus-within:ring-primary/30"
+            globalDrop
+            multiple
+            onSubmit={handleSubmit}
+          >
+            <PromptInputHeader>
+              <PromptInputAttachments>
+                {(attachment) => <PromptInputAttachment data={attachment} />}
+              </PromptInputAttachments>
+            </PromptInputHeader>
 
-          <PromptInputBody>
-            <PromptInputTextarea
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Type a message…"
-              value={input}
-            />
-          </PromptInputBody>
+            <PromptInputBody>
+              <PromptInputTextarea
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Type a message…"
+                value={input}
+              />
+            </PromptInputBody>
 
-          <PromptInputFooter>
-            <PromptInputTools>
-              <PromptInputActionMenu>
-                <PromptInputActionMenuTrigger />
-                <PromptInputActionMenuContent>
-                  <PromptInputActionAddAttachments />
-                </PromptInputActionMenuContent>
-              </PromptInputActionMenu>
+            <PromptInputFooter>
+              <PromptInputTools>
+                <PromptInputActionMenu>
+                  <PromptInputActionMenuTrigger />
+                  <PromptInputActionMenuContent>
+                    <PromptInputActionAddAttachments />
+                  </PromptInputActionMenuContent>
+                </PromptInputActionMenu>
 
-              <PromptInputSelect onValueChange={setModel} value={model}>
-                <PromptInputSelectTrigger>
-                  <PromptInputSelectValue />
-                </PromptInputSelectTrigger>
-                <PromptInputSelectContent>
-                  {MODEL_OPTIONS.map((m) => (
-                    <PromptInputSelectItem key={m.id} value={m.id}>
-                      {m.label}
-                    </PromptInputSelectItem>
-                  ))}
-                </PromptInputSelectContent>
-              </PromptInputSelect>
+                <PromptInputSelect onValueChange={setModel} value={model}>
+                  <PromptInputSelectTrigger>
+                    <PromptInputSelectValue />
+                  </PromptInputSelectTrigger>
+                  <PromptInputSelectContent>
+                    {MODEL_OPTIONS.map((m) => (
+                      <PromptInputSelectItem key={m.id} value={m.id}>
+                        {m.label}
+                      </PromptInputSelectItem>
+                    ))}
+                  </PromptInputSelectContent>
+                </PromptInputSelect>
 
-                  <PromptInputButton
-                    aria-pressed={useSearch}
-                    onClick={() => setUseSearch((v) => !v)}
-                    type="button"
-                    variant={useSearch ? "secondary" : "ghost"}
-                  >
-                    <SearchIcon className="size-4" />
-                    <span>Search</span>
-                  </PromptInputButton>
+                <Context
+                  maxTokens={contextEstimate.maxTokens}
+                  usedTokens={contextEstimate.usedTokens}
+                >
+                  <ContextTrigger />
+                  <ContextContent align="end">
+                    <ContextContentHeader />
+                    <ContextContentBody>
+                      <div className="text-muted-foreground text-xs">
+                        Token usage is an estimate in this starter. Stream real usage
+                        later via AI SDK `messageMetadata`.
+                      </div>
+                    </ContextContentBody>
+                  </ContextContent>
+                </Context>
 
-                  <PromptInputButton
-                    aria-pressed={debug}
-                    onClick={() => setDebug((v) => !v)}
-                    type="button"
-                    variant={debug ? "secondary" : "ghost"}
-                  >
-                    <BugIcon className="size-4" />
-                    <span>Debug</span>
-                  </PromptInputButton>
+                <PromptInputButton
+                  aria-pressed={useSearch}
+                  onClick={() => setUseSearch((v) => !v)}
+                  type="button"
+                  variant={useSearch ? "secondary" : "ghost"}
+                >
+                  <SearchIcon className="size-4" />
+                  <span>Search</span>
+                </PromptInputButton>
 
-              <PromptInputButton
-                onClick={() => regenerate()}
-                type="button"
-                variant="ghost"
-              >
-                <RefreshCcwIcon className="size-4" />
-                <span>Retry</span>
-              </PromptInputButton>
-            </PromptInputTools>
+                <PromptInputButton
+                  aria-pressed={debug}
+                  onClick={() => setDebug((v) => !v)}
+                  type="button"
+                  variant={debug ? "secondary" : "ghost"}
+                >
+                  <BugIcon className="size-4" />
+                  <span>Debug</span>
+                </PromptInputButton>
 
-            <PromptInputSubmit status={status} />
-          </PromptInputFooter>
-        </PromptInput>
+                <PromptInputButton
+                  onClick={() => regenerate()}
+                  type="button"
+                  variant="ghost"
+                >
+                  <RefreshCcwIcon className="size-4" />
+                  <span>Retry</span>
+                </PromptInputButton>
+              </PromptInputTools>
+
+              <PromptInputSubmit status={status} />
+            </PromptInputFooter>
+          </PromptInput>
+        </div>
       </div>
     </div>
   );
