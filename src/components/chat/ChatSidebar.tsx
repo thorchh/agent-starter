@@ -56,6 +56,42 @@ export function ChatSidebar(props: {
     return chats.filter((c) => c.title.toLowerCase().includes(q));
   }, [chats, filter]);
 
+  const groupedChats = useMemo(() => {
+    const groups: Record<string, ChatSummary[]> = {
+      Today: [],
+      Yesterday: [],
+      "Previous 7 Days": [],
+      "Previous 30 Days": [],
+      Older: [],
+    };
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const last7Days = new Date(today);
+    last7Days.setDate(last7Days.getDate() - 7);
+    const last30Days = new Date(today);
+    last30Days.setDate(last30Days.getDate() - 30);
+
+    filtered.forEach((chat) => {
+      const chatDate = new Date(chat.updatedAt);
+      if (chatDate >= today) {
+        groups.Today.push(chat);
+      } else if (chatDate >= yesterday) {
+        groups.Yesterday.push(chat);
+      } else if (chatDate >= last7Days) {
+        groups["Previous 7 Days"].push(chat);
+      } else if (chatDate >= last30Days) {
+        groups["Previous 30 Days"].push(chat);
+      } else {
+        groups.Older.push(chat);
+      }
+    });
+
+    return groups;
+  }, [filtered]);
+
   const createNewChat = async () => {
     // Draft mode: don’t create a chat record until the user submits their first message.
     router.push("/chat");
@@ -135,57 +171,61 @@ export function ChatSidebar(props: {
             <p className="text-xs text-muted-foreground">No chats found</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-1">
-            {filtered.map((c) => {
-              const active = c.id === props.activeChatId;
+          <div className="flex flex-col gap-6">
+            {Object.entries(groupedChats).map(([label, group]) => {
+              if (group.length === 0) return null;
               return (
-                <div
-                  key={c.id}
-                  className={cn(
-                    "group relative flex items-center gap-2 rounded-lg px-3 py-2.5 transition-colors",
-                    active
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-                  )}
-                >
-                  <button
-                    className="min-w-0 flex-1 text-left outline-none"
-                    onClick={() => router.push(`/chat/${c.id}`)}
-                    type="button"
-                  >
-                    <div
-                      className={cn(
-                        "truncate text-sm font-medium transition-all duration-200 ease-in-out group-hover:pr-8",
-                        active ? "text-primary" : "text-foreground"
-                      )}
-                    >
-                      {c.title}
-                    </div>
-                    <div className="truncate text-[10px] opacity-60 mt-0.5">
-                      {new Date(c.updatedAt).toLocaleDateString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                        hour: "numeric",
-                        minute: "numeric",
-                      })}
-                    </div>
-                  </button>
+                <div key={label} className="flex flex-col gap-1">
+                  <div className="px-3 text-xs font-medium text-muted-foreground/50 uppercase tracking-wider mb-1">
+                    {label}
+                  </div>
+                  {group.map((c) => {
+                    const active = c.id === props.activeChatId;
+                    return (
+                      <div
+                        key={c.id}
+                        className={cn(
+                          "group relative flex items-center gap-2 rounded-lg px-3 py-2.5 transition-colors",
+                          active
+                            ? "bg-primary/10 text-primary"
+                            : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                        )}
+                      >
+                        <button
+                          className="min-w-0 flex-1 text-left outline-none"
+                          onClick={() => router.push(`/chat/${c.id}`)}
+                          type="button"
+                        >
+                          <div
+                            className={cn(
+                              "truncate text-sm font-medium transition-all duration-200 ease-in-out group-hover:pr-8",
+                              active ? "text-primary" : "text-foreground"
+                            )}
+                          >
+                            {c.title}
+                          </div>
+                        </button>
 
-                  <Button
-                    aria-label="Delete chat"
-                    className={cn(
-                      "absolute right-2 h-7 w-7 p-0 opacity-0 transition-all group-hover:opacity-100",
-                      active ? "text-primary hover:bg-primary/20" : "text-muted-foreground hover:bg-muted hover:text-destructive"
-                    )}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteOne(c.id);
-                    }}
-                    type="button"
-                    variant="ghost"
-                  >
-                    <Trash2Icon className="size-3.5" />
-                  </Button>
+                        <Button
+                          aria-label="Delete chat"
+                          className={cn(
+                            "absolute right-2 h-7 w-7 p-0 opacity-0 transition-all group-hover:opacity-100",
+                            active
+                              ? "text-primary hover:bg-primary/20"
+                              : "text-muted-foreground hover:bg-muted hover:text-destructive"
+                          )}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteOne(c.id);
+                          }}
+                          type="button"
+                          variant="ghost"
+                        >
+                          <Trash2Icon className="size-3.5" />
+                        </Button>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })}
@@ -195,5 +235,3 @@ export function ChatSidebar(props: {
     </aside>
   );
 }
-
-

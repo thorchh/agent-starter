@@ -49,9 +49,10 @@ import {
 import { ChatHeader } from "@/components/chat/ChatHeader";
 import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { MessageParts } from "@/components/chat/MessageParts";
-import { BugIcon, SearchIcon } from "lucide-react";
+import { BugIcon, SearchIcon, MenuIcon } from "lucide-react";
 import { MODEL_OPTIONS } from "@/lib/ai/models";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 const SUGGESTIONS = [
@@ -185,14 +186,26 @@ export function ChatClient(props: { id?: string; initialMessages: UIMessage[] })
       <div className="flex h-full w-full flex-1 flex-col overflow-hidden">
         {/* Pinned header (app-like) */}
         <div className="sticky top-0 z-20 w-full border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
-          <div className="mx-auto w-full max-w-4xl px-4 py-3 md:px-6">
+          <div className="mx-auto w-full max-w-4xl px-4 py-3 md:px-6 flex items-center gap-3">
+            <Sheet>
+              <SheetTrigger asChild>
+                <button
+                  type="button"
+                  className="md:hidden -ml-2 p-2 text-muted-foreground hover:text-foreground"
+                >
+                  <MenuIcon className="size-5" />
+                </button>
+              </SheetTrigger>
+              <SheetContent side="left" className="p-0 w-[280px]">
+                <ChatSidebar
+                  activeChatId={persistedChatId ?? ""}
+                  className="w-full border-none"
+                />
+              </SheetContent>
+            </Sheet>
             <ChatHeader
               canNewChat={canNewChat}
-              className="px-0 py-0"
-              onNewChat={() => {
-                setMessages([]);
-                router.push("/chat");
-              }}
+              className="px-0 py-0 flex-1"
               subtitle="AI Elements UI • AI SDK streaming • doc-aligned persistence"
               title="Agent Starter"
             />
@@ -200,7 +213,7 @@ export function ChatClient(props: { id?: string; initialMessages: UIMessage[] })
         </div>
 
         <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/40">
-          <div className="mx-auto flex w-full max-w-3xl flex-col px-4 md:px-0">
+          <div className="mx-auto flex w-full max-w-3xl flex-col px-4">
             <Conversation className="flex-1">
               {/* Add bottom padding so the floating input bubble never covers content */}
               <ConversationContent className="gap-8 px-0 py-8 pb-40">
@@ -232,14 +245,14 @@ export function ChatClient(props: { id?: string; initialMessages: UIMessage[] })
                       debug={debug}
                       isLastMessage={message.id === messages.at(-1)?.id}
                       message={message}
-                          onRetry={
-                            message.role === "assistant"
-                              ? () =>
-                                  regenerate({
-                                    body: { id: persistedChatId ?? undefined },
-                                  })
-                              : undefined
-                          }
+                      onRetry={
+                        message.role === "assistant"
+                          ? () =>
+                            regenerate({
+                              body: { id: persistedChatId ?? undefined },
+                            })
+                          : undefined
+                      }
                       status={status}
                     />
                   ))
@@ -263,7 +276,7 @@ export function ChatClient(props: { id?: string; initialMessages: UIMessage[] })
         </div>
 
         {/* Floating input bubble like ChatGPT (no blur / no bottom background). */}
-        <div className="z-10 w-full bg-gradient-to-t from-background via-background to-transparent px-4 pb-6 pt-2 md:px-0">
+        <div className="z-10 w-full bg-gradient-to-t from-background via-background to-transparent px-4 pb-6 pt-2">
           <div className="mx-auto w-full max-w-3xl">
             <PromptInput
               className="w-full rounded-3xl border border-border bg-card shadow-xl shadow-black/5 transition-all duration-300"
@@ -322,7 +335,7 @@ export function ChatClient(props: { id?: string; initialMessages: UIMessage[] })
                     )}
                   >
                     <SearchIcon className="size-4" />
-                    <span className="text-xs font-medium">Search</span>
+                    <span className="hidden sm:inline text-xs font-medium">Search</span>
                   </PromptInputButton>
 
                   <PromptInputButton
@@ -333,7 +346,7 @@ export function ChatClient(props: { id?: string; initialMessages: UIMessage[] })
                     className="h-8"
                   >
                     <BugIcon className="size-4" />
-                    <span className="text-xs font-medium">Debug</span>
+                    <span className="hidden sm:inline text-xs font-medium">Debug</span>
                   </PromptInputButton>
                 </PromptInputTools>
 
