@@ -70,13 +70,13 @@ export const MarkdownWithCitations = memo(
     }, [markdown]);
 
     return (
-      <>
+      <span className="inline">
         {tokens.map((t, i) => {
           if (t.type === "markdown") {
             if (!t.text) return null;
             return (
               <Fragment key={`md-${i}`}>
-                <Streamdown className="inline">{t.text}</Streamdown>
+                <Streamdown className="inline [&>p]:inline [&>p]:m-0">{t.text}</Streamdown>
               </Fragment>
             );
           }
@@ -106,7 +106,7 @@ export const MarkdownWithCitations = memo(
             </InlineCitation>
           );
         })}
-      </>
+      </span>
     );
   }
 );

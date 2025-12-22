@@ -30,6 +30,12 @@ export const SYSTEM_PROMPT = [
   "- Use bolding (**text**) for emphasis.",
   "- Use lists (-, 1.) for readability.",
   "- Keep paragraphs short and readable.",
+  "",
+  "Citations:",
+  "- When citing sources, ONLY use numbered markers like [1], [2], [3] in your response.",
+  "- Do NOT manually write source URLs or domains in your response text (e.g., avoid writing '(reuters.com)' or similar).",
+  "- Do NOT include a 'Sources:' section at the end of your response.",
+  "- The citation system will automatically render source information when you use [1], [2] markers.",
 ].join("\\n");
 
 

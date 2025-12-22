@@ -98,7 +98,13 @@ export async function POST(req: Request) {
     const system =
       SYSTEM_PROMPT +
       (useSearch && canUseOpenAIWebSearch
-        ? "\n\nSearch is enabled. You may use the `web_search` tool when helpful. When you cite sources, add inline markers like [1], [2] that correspond to the source list."
+        ? "\n\nIMPORTANT - Search and Citations:\n" +
+          "- Search is enabled. Use the `web_search` tool when helpful.\n" +
+          "- When citing sources, use ONLY numbered markers [1], [2], [3] inline with your text.\n" +
+          "- Do NOT add source names, domains, or URLs anywhere in your response text (e.g., do not write '(reuters.com)', '(source.com)', or similar).\n" +
+          "- Do NOT create a 'Sources:' list or section at the end of your response.\n" +
+          "- The numbered markers [1], [2] will automatically render as interactive citation badges with full source information.\n" +
+          "- Write naturally and concisely - just add the [1], [2] markers where claims need citations."
         : "");
 
     const result = streamText({

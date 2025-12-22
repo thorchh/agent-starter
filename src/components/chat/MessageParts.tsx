@@ -467,33 +467,37 @@ export function MessageParts({
                   >
                     <ChainOfThoughtHeader>Thought process</ChainOfThoughtHeader>
                     <ChainOfThoughtContent>
-                      {hasReasoning && (
-                        <>
-                          {reasoningParts
-                            .filter((rp) => rp.text.trim().length > 0)
-                            .map((rp, idx) => (
-                              <ChainOfThoughtStep
-                                key={`${message.id}-reasoning-${idx}`}
-                                aria-label="Reasoning"
-                                role="group"
-                                status={
-                                  status === "streaming" &&
-                                    isLastMessage &&
-                                    message.role === "assistant" &&
-                                    rp.state === "streaming"
-                                    ? "active"
-                                    : "complete"
-                                }
-                                className="pb-3"
-                              >
-                                <div className="text-muted-foreground text-xs [&_code]:text-[11px] [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:bg-muted/60">
-                                  <MessageResponse>{rp.text}</MessageResponse>
-                                </div>
-                              </ChainOfThoughtStep>
-                            ))}
-                        </>
-                      )}
-                      {toolParts.map((tp, idx) => {
+                      {message.parts.map((p, partIndex) => {
+                        // Render reasoning parts
+                        if (p.type === "reasoning") {
+                          if (p.text.trim().length === 0) return null;
+
+                          return (
+                            <ChainOfThoughtStep
+                              key={`${message.id}-reasoning-${partIndex}`}
+                              aria-label="Reasoning"
+                              role="group"
+                              status={
+                                status === "streaming" &&
+                                  isLastMessage &&
+                                  message.role === "assistant" &&
+                                  p.state === "streaming"
+                                  ? "active"
+                                  : "complete"
+                              }
+                              className="pb-3"
+                            >
+                              <div className="text-muted-foreground text-xs [&_code]:text-[11px] [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:bg-muted/60">
+                                <MessageResponse>{p.text}</MessageResponse>
+                              </div>
+                            </ChainOfThoughtStep>
+                          );
+                        }
+
+                        // Render tool parts
+                        if (!isToolOrDynamicToolUIPart(p)) return null;
+
+                        const tp = p;
                         const toolName = getToolOrDynamicToolName(tp);
                         const isWebSearch = toolName === "web_search";
 
@@ -537,7 +541,7 @@ export function MessageParts({
                                   ? FileTextIcon
                                   : WrenchIcon;
 
-                        const status: "complete" | "active" | "pending" = (() => {
+                        const toolStatus: "complete" | "active" | "pending" = (() => {
                           if (
                             tp.state === "output-available" ||
                             tp.state === "output-error"
@@ -593,12 +597,12 @@ export function MessageParts({
 
                         return (
                           <ChainOfThoughtStep
-                            key={`${message.id}-toolstep-${idx}`}
-                            className={idx === toolParts.length - 1 ? "pb-0" : "pb-3"}
+                            key={`${message.id}-toolstep-${partIndex}`}
+                            className="pb-3"
                             icon={Icon}
                             label={label}
                             description={query}
-                            status={status}
+                            status={toolStatus}
                           >
                             {uniqHosts.length > 0 && (
                               <ChainOfThoughtSearchResults>
@@ -611,7 +615,7 @@ export function MessageParts({
                             )}
                             {/* If the tool completed but no sources were returned, make that explicit. */}
                             {toolName === "web_search" &&
-                              status === "complete" &&
+                              toolStatus === "complete" &&
                               uniqHosts.length === 0 && (
                                 <div className="text-muted-foreground text-xs">
                                   No sources returned for this step.
