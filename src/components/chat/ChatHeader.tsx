@@ -41,9 +41,9 @@ export function ChatHeader({
       )}
       {...props}
     >
-      <div className="min-w-0">
-        <div className="truncate font-medium">{title}</div>
-        <div className="truncate text-muted-foreground text-xs">{subtitle}</div>
+      <div className="min-w-0 flex flex-col gap-0.5">
+        <div className="truncate font-semibold text-sm tracking-tight">{title}</div>
+        <div className="truncate text-muted-foreground text-[11px] font-medium tracking-wide uppercase opacity-80">{subtitle}</div>
       </div>
 
       <div className="flex items-center gap-2">
@@ -55,9 +55,10 @@ export function ChatHeader({
             size="sm"
             type="button"
             variant="ghost"
+            className="h-8 px-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
           >
-            <Trash2Icon className="mr-2 size-4" />
-            Clear
+            <Trash2Icon className="mr-1.5 size-3.5" />
+            <span className="text-xs font-medium">Clear</span>
           </Button>
         )}
       </div>
