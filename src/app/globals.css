@@ -73,15 +73,15 @@
 
 :root {
   --radius: 0.75rem;
-  /* Zinc Light */
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.141 0.005 285.823);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.141 0.005 285.823);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.141 0.005 285.823);
-  --primary-foreground: oklch(0.985 0 0);
+  /* Zinc Light - Soft */
+  --background: oklch(1.0 0.002 285);
+  --foreground: oklch(0.25 0.005 285);
+  --card: oklch(0.99 0.001 285);
+  --card-foreground: oklch(0.25 0.005 285);
+  --popover: oklch(0.99 0.001 285);
+  --popover-foreground: oklch(0.25 0.005 285);
+  --primary: oklch(0.25 0.005 285);
+  --primary-foreground: oklch(0.98 0 0);
   --secondary: oklch(0.967 0.001 286.375);
   --secondary-foreground: oklch(0.141 0.005 285.823);
   --muted: oklch(0.967 0.001 286.375);
@@ -108,14 +108,13 @@
 }
 
 .dark {
-  /* Zinc Dark */
-  --background: oklch(0.1 0 0);
-  /* Slightly darker background */
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.141 0.005 285.823);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.141 0.005 285.823);
-  --popover-foreground: oklch(0.985 0 0);
+  /* Zinc Dark - Soft */
+  --background: oklch(0.22 0.005 285);
+  --foreground: oklch(0.95 0 0);
+  --card: oklch(0.25 0.005 285);
+  --card-foreground: oklch(0.95 0 0);
+  --popover: oklch(0.25 0.005 285);
+  --popover-foreground: oklch(0.95 0 0);
   --primary: oklch(0.985 0 0);
   --primary-foreground: oklch(0.141 0.005 285.823);
   --secondary: oklch(0.274 0.006 286.033);
