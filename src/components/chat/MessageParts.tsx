@@ -296,7 +296,8 @@ export function MessageParts({
             // appear exactly where the SDK emitted them.
             const isOmitted =
               typeof part.url === "string" &&
-              part.url.startsWith("local-storage://omitted");
+              (part.url.startsWith("local-storage://omitted") ||
+                part.url.startsWith("omitted://"));
 
             return (
               <Message key={`${message.id}-file-${i}`} from={message.role}>

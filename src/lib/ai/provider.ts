@@ -1,5 +1,5 @@
 import { openai } from "@ai-sdk/openai";
-import type { LanguageModel, LanguageModelV2 } from "ai";
+import type { LanguageModel } from "ai";
 
 import { createGateway, extractReasoningMiddleware, wrapLanguageModel } from "ai";
 import { groq } from "@ai-sdk/groq";
@@ -51,7 +51,8 @@ export function getGatewayModel(modelId: string): LanguageModel {
  * Ref: https://ai-sdk.dev/cookbook/guides/r1 (extractReasoningMiddleware)
  */
 function maybeWrapWithThinkTagReasoning(modelId: string, model: LanguageModel) {
-  // Only LanguageModelV2 instances can be wrapped with middleware.
+  // Only provider model instances can be wrapped with middleware.
+  // (String model IDs cannot.)
   if (typeof model === "string") return model;
 
   // Apply to DeepSeek R1 variants (Groq, AI Gateway, etc.).
@@ -62,8 +63,9 @@ function maybeWrapWithThinkTagReasoning(modelId: string, model: LanguageModel) {
   if (!shouldExtract) return model;
 
   return wrapLanguageModel({
-    // `wrapLanguageModel` expects a LanguageModelV2, which is what provider instances return.
-    model: model as LanguageModelV2,
+    // `wrapLanguageModel` expects a LanguageModelV2. The runtime provider model instance
+    // is compatible here, but the type isn't exported in our installed AI SDK version.
+    model: model as never,
     middleware: extractReasoningMiddleware({
       tagName: "think",
       startWithReasoning: true,

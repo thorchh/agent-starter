@@ -6,7 +6,7 @@ Polished starter template for building **agentic workflows** with:
 - Tailwind + shadcn/ui + **AI Elements**
 - **Vercel AI SDK** streaming chat + multi-step tool calling
 - OpenAI provider by default (`@ai-sdk/openai`)
-- Local conversation persistence (localStorage) with a DB-ready interface
+- Doc-aligned chat persistence (AI SDK UI) using a file-based store in local dev
 
 Docs references:
 
@@ -52,7 +52,9 @@ Open:
 
 #### Chat UI
 
-- `src/app/chat/page.tsx`: main chat screen (AI Elements `Conversation` + `PromptInput` + `MessageParts`)
+- `src/app/chat/page.tsx`: creates a new chat and redirects to `/chat/[id]` (docs pattern)
+- `src/app/chat/[id]/page.tsx`: server-loads persisted messages and renders the chat client
+- `src/components/chat/ChatClient.tsx`: main chat screen (AI Elements `Conversation` + `PromptInput` + `MessageParts`)
 - `src/components/chat/MessageParts.tsx`: the single place where `message.parts` are rendered (text, attachments, tools, reasoning, sources)
 - `src/components/chat/ChatHeader.tsx`: minimal header (clear chat + title)
 
@@ -69,9 +71,11 @@ Open:
 
 #### Persistence
 
-- `src/lib/chat/store/types.ts`: `ChatStore` interface (DB-upgradable)
-- `src/lib/chat/store/localStorageStore.ts`: current implementation
-- `src/lib/chat/store/dbStore.ts`: placeholder skeleton for future DB integration
+- `src/lib/chat/server/fileChatStore.ts`: docs-style file store (`.chats/{id}.json`) for local dev
+- `.chats/`: ignored from git; created on demand
+
+Attachments note:
+- This starter **persists attachment metadata only** (filename/mediaType/size). File bytes/URLs are not stored; the UI will ask you to re-upload after refresh. In production, swap in a blob store (S3/R2/Vercel Blob) and persist blob URLs/keys instead.
 
 ### How tool calling works
 
@@ -85,8 +89,4 @@ The server uses AI SDK `streamText` with a tools object (`src/lib/ai/tools/index
 
 ### DB persistence upgrade path
 
-This starter keeps a `ChatStore` interface so moving from localStorage to a DB is a swap:
-
-- Implement `createDbStore()` in `src/lib/chat/store/dbStore.ts`.
-- Switch the store used in `src/app/chat/page.tsx`.
-- Add threads/users/auth as needed.
+This starter follows the AI SDK UI persistence flow (server-side storage + chat IDs). The file store is intentionally simple for local dev; on Vercel you should replace it with a real database + blob storage for attachments.

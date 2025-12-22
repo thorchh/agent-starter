@@ -17,6 +17,9 @@
 /.next/
 /out/
 
+# local dev chat persistence (AI SDK docs-style)
+.chats/
+
 # production
 /build
 
