@@ -40,7 +40,10 @@ import {
   Context,
   ContextContent,
   ContextContentBody,
+  ContextContentFooter,
   ContextContentHeader,
+  ContextInputUsage,
+  ContextOutputUsage,
   ContextTrigger,
 } from "@/components/ai-elements/context";
 import { ChatHeader } from "@/components/chat/ChatHeader";
@@ -85,16 +88,32 @@ export default function ChatPage() {
   const store = useMemo(() => createLocalStorageStore(), []);
 
   const contextEstimate = useMemo(() => {
-    // This is a lightweight starter: we don't yet persist/stream real token usage.
-    // Provide a rough estimate so the Context UI is useful immediately.
-    const joined = messages
+    const inputTokens = messages
+      .filter((m) => m.role === "user")
       .flatMap((m) => m.parts)
       .filter((p) => p.type === "text")
       .map((p) => p.text)
-      .join("\n");
-    const usedTokens = Math.ceil(joined.length / 4); // common heuristic
-    const maxTokens = 128_000; // conservative default; can be made model-aware later
-    return { usedTokens, maxTokens };
+      .join("").length / 4;
+
+    const outputTokens = messages
+      .filter((m) => m.role === "assistant")
+      .flatMap((m) => m.parts)
+      .filter((p) => p.type === "text")
+      .map((p) => p.text)
+      .join("").length / 4;
+
+    const usedTokens = Math.ceil(inputTokens + outputTokens);
+    const maxTokens = 128_000;
+
+    return {
+      usedTokens,
+      maxTokens,
+      usage: {
+        inputTokens: Math.ceil(inputTokens),
+        outputTokens: Math.ceil(outputTokens),
+        totalTokens: Math.ceil(inputTokens + outputTokens),
+      },
+    };
   }, [messages]);
 
   // Load persisted conversation once on mount (client-only).
@@ -264,22 +283,6 @@ export default function ChatPage() {
                   </PromptInputSelectContent>
                 </PromptInputSelect>
 
-                <Context
-                  maxTokens={contextEstimate.maxTokens}
-                  usedTokens={contextEstimate.usedTokens}
-                >
-                  <ContextTrigger className="h-8" />
-                  <ContextContent align="end">
-                    <ContextContentHeader />
-                    <ContextContentBody>
-                      <div className="text-muted-foreground text-xs">
-                        Token usage is an estimate in this starter. Stream real usage
-                        later via AI SDK `messageMetadata`.
-                      </div>
-                    </ContextContentBody>
-                  </ContextContent>
-                </Context>
-
                 <div className="h-4 w-px bg-border/50 mx-1" />
 
                 <PromptInputButton
@@ -304,18 +307,28 @@ export default function ChatPage() {
                   <span className="text-xs font-medium">Debug</span>
                 </PromptInputButton>
 
-                <PromptInputButton
-                  onClick={() => regenerate()}
-                  type="button"
-                  variant="ghost"
-                  className="h-8"
-                >
-                  <RefreshCcwIcon className="size-4" />
-                  <span className="text-xs font-medium">Retry</span>
-                </PromptInputButton>
+
               </PromptInputTools>
 
-              <PromptInputSubmit status={status} className="rounded-full size-9" />
+              <div className="flex items-center gap-2">
+                <Context
+                  maxTokens={contextEstimate.maxTokens}
+                  usedTokens={contextEstimate.usedTokens}
+                  usage={contextEstimate.usage}
+                  modelId={model}
+                >
+                  <ContextTrigger className="h-8" />
+                  <ContextContent align="end">
+                    <ContextContentHeader />
+                    <ContextContentBody>
+                      <ContextInputUsage />
+                      <ContextOutputUsage />
+                      <ContextContentFooter />
+                    </ContextContentBody>
+                  </ContextContent>
+                </Context>
+                <PromptInputSubmit status={status} className="rounded-full size-9" />
+              </div>
             </PromptInputFooter>
           </PromptInput>
           <div className="text-center text-[10px] text-muted-foreground mt-3 font-medium opacity-60">
