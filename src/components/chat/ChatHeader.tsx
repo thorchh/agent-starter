@@ -28,7 +28,7 @@ export type ChatHeaderProps = ComponentProps<"header"> & {
 export function ChatHeader({
   className,
   title = "Agent Starter",
-  subtitle = "Streaming chat + tools, built with AI Elements",
+  subtitle = "AI Elements • Streaming • Tool Calling",
   onNewChat,
   canNewChat = true,
   actions,

@@ -49,7 +49,7 @@ import {
 import { ChatHeader } from "@/components/chat/ChatHeader";
 import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { MessageParts } from "@/components/chat/MessageParts";
-import { BugIcon, SearchIcon, MenuIcon } from "lucide-react";
+import { BugIcon, SearchIcon, MenuIcon, Sparkles } from "lucide-react";
 import { MODEL_OPTIONS } from "@/lib/ai/models";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -236,21 +236,7 @@ export function ChatClient(props: { id?: string; initialMessages: UIMessage[] })
                   <div className="flex flex-1 flex-col items-center justify-center gap-10 py-16 text-center animate-fade-in">
                     <div className="flex flex-col items-center gap-4">
                       <div className="flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 text-primary">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="32"
-                          height="32"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M12 8V4H8" />
-                          <rect width="16" height="12" x="4" y="8" rx="2" />
-                          <path d="m2 14 4.5-3L8 12l3-2 4 2.5 6-3.5" />
-                        </svg>
+                        <Sparkles className="size-8" />
                       </div>
                       <div className="space-y-2">
                         <h2 className="text-2xl font-semibold tracking-tight bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text text-transparent">
