@@ -341,8 +341,8 @@ export function MessageParts({
                         {part.mediaType}
                       </div>
                       <div className="text-muted-foreground mt-1 text-[11px]">
-                        Attachment content isn’t persisted in localStorage. Re-upload
-                        if you need to reference it after refresh.
+                        Attachment content isn’t persisted. Re-upload if you need to
+                        reference it after refresh.
                       </div>
                     </div>
                   ) : (

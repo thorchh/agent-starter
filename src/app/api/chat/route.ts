@@ -190,6 +190,67 @@ export async function POST(req: Request) {
       tools: requestTools,
     });
 
+    type AnyPart = UIMessage["parts"][number];
+    type FilePart = AnyPart & {
+      type: "file";
+      filename?: string;
+      mediaType?: string;
+      url?: string;
+    };
+    const isFilePart = (p: AnyPart): p is FilePart => p.type === "file";
+
+    // Some models/providers can accept PDFs as file parts (cookbook pattern), but not all.
+    // We keep the original UIMessage parts for rendering + persistence, and only strip file
+    // parts from the *model prompt* when the current provider/model likely can't handle them.
+    //
+    // Ref: Chat with PDFs cookbook + file prompt cookbook
+    // - https://ai-sdk.dev/cookbook/next/chat-with-pdf
+    // - https://ai-sdk.dev/cookbook/next/generate-object-with-file-prompt
+    //
+    // Strategy:
+    // - Always allow image/* and text/*.
+    // - Allow application/pdf only for providers/models we expect to support it.
+    // - For everything else, strip + add a note so the assistant asks for pasted text.
+    const providerSupportsPdf =
+      requestedModel.startsWith("openai/") ||
+      requestedModel.startsWith("gateway/openai/") ||
+      requestedModel.startsWith("gateway/google/") ||
+      requestedModel.startsWith("gateway/anthropic/");
+
+    const isSupportedFileForModel = (p: FilePart) => {
+      const mt = p.mediaType ?? "";
+      if (mt.startsWith("image/")) return true;
+      if (mt.startsWith("text/")) return true;
+      if (mt === "application/pdf") return providerSupportsPdf;
+      return false;
+    };
+
+    const modelReadyMessages: UIMessage[] = validatedMessages.map((m) => {
+      const parts = m.parts ?? [];
+      const unsupportedFiles = parts
+        .filter(isFilePart)
+        .filter((p) => !isSupportedFileForModel(p));
+
+      const supportedParts = parts.filter(
+        (p) => !isFilePart(p) || isSupportedFileForModel(p)
+      );
+
+      if (m.role === "user" && unsupportedFiles.length > 0) {
+        const summary = unsupportedFiles
+          .map((f) => `${f.filename ?? "file"} (${f.mediaType ?? "unknown"})`)
+          .join(", ");
+        supportedParts.push({
+          type: "text",
+          text:
+            `\n\n[Attachment received: ${summary}. ` +
+            `This file type isn't automatically readable here. ` +
+            `Please ask the user to paste the relevant text or convert it to a supported format.]\n`,
+        });
+      }
+
+      return { ...m, parts: supportedParts };
+    });
+
     // ──────────────────────────────────────────────────────────────────────
     // 8. BUILD SYSTEM PROMPT
     // ──────────────────────────────────────────────────────────────────────
@@ -217,7 +278,7 @@ export async function POST(req: Request) {
       system,
 
       // Convert UI messages to model format
-      messages: convertToModelMessages(validatedMessages),
+      messages: convertToModelMessages(modelReadyMessages),
 
       // Available tools
       tools: requestTools,

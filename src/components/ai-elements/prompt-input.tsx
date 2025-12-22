@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { ChatStatus, FileUIPart } from "ai";
+import { OMITTED_ATTACHMENT_URL } from "@/lib/chat/constants";
 import {
   CornerDownLeftIcon,
   ImageIcon,
@@ -724,9 +725,29 @@ export const PromptInput = ({
       form.reset();
     }
 
-    // Convert blob URLs to data URLs asynchronously
+    // Convert blob URLs to data URLs asynchronously.
+    // Aligns with AI SDK attachments doc:
+    // - only image/* and text/* are auto-converted into multi-modal content parts
+    // - other content types should be handled manually (blob storage, parsing, etc.)
     Promise.all(
       files.map(async ({ id, ...item }) => {
+        // We support PDF conversion too (cookbook pattern: convert to data URL),
+        // since some models (OpenAI/Gemini/Anthropic) can accept PDFs.
+        const isAutoConvertible =
+          Boolean(item.mediaType?.startsWith("image/")) ||
+          Boolean(item.mediaType?.startsWith("text/")) ||
+          item.mediaType === "application/pdf";
+
+        // For non-supported types (pdf, docx, etc.), don’t send raw bytes inline.
+        // We still send the metadata (filename/mediaType) so the server/UI can render
+        // an attachment stub and provide a future hook for blob storage.
+        if (!isAutoConvertible) {
+          return {
+            ...item,
+            url: OMITTED_ATTACHMENT_URL,
+          };
+        }
+
         if (item.url && item.url.startsWith("blob:")) {
           const dataUrl = await convertBlobUrlToDataUrl(item.url);
           // If conversion failed, keep the original blob URL

@@ -303,7 +303,9 @@ export function ChatClient(props: { id?: string; initialMessages: UIMessage[] })
           <div className="mx-auto w-full max-w-3xl">
             <PromptInput
               className="w-full rounded-3xl border border-border bg-card shadow-xl shadow-black/5 transition-all duration-300"
+                      accept="image/*,text/*,application/pdf"
               globalDrop
+                      maxFileSize={20 * 1024 * 1024}
               multiple
               onSubmit={handleSubmit}
             >

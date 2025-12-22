@@ -5,6 +5,8 @@ import { existsSync, mkdirSync } from "node:fs";
 import { readdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { OMITTED_ATTACHMENT_URL } from "@/lib/chat/constants";
+
 /**
  * File-based chat store (docs-aligned).
  *
@@ -29,12 +31,7 @@ function getChatFile(id: string): string {
   return path.join(CHAT_DIR, `${id}.json`);
 }
 
-/**
- * Attachments in UIMessage parts can include large data URLs (PDF/images) and should not
- * be persisted as raw bytes in JSON. We persist metadata only and provide a clear
- * extension point for real blob storage later.
- */
-export const OMITTED_ATTACHMENT_URL = "omitted://attachment";
+export { OMITTED_ATTACHMENT_URL };
 
 export type ChatSummary = {
   id: string;
