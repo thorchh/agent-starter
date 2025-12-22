@@ -56,13 +56,8 @@ export function ChatSidebar(props: {
   }, [chats, filter]);
 
   const createNewChat = async () => {
-    setError(null);
-    try {
-      const data = await fetchJson<{ id: string }>("/api/chats", { method: "POST" });
-      router.push(`/chat/${data.id}`);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create chat");
-    }
+    // Draft mode: don’t create a chat record until the user submits their first message.
+    router.push("/chat");
   };
 
   const deleteOne = async (id: string) => {
@@ -73,8 +68,8 @@ export function ChatSidebar(props: {
       await fetchJson<{ ok: true }>(`/api/chats/${id}`, { method: "DELETE" });
       await refresh();
       if (id === props.activeChatId) {
-        // If we deleted the active chat, immediately create a new one.
-        await createNewChat();
+        // If we deleted the active chat, return to draft mode.
+        router.push("/chat");
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to delete chat");

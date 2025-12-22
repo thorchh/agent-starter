@@ -61,8 +61,12 @@ const SUGGESTIONS = [
   "Write a TypeScript function and format it as markdown.",
 ];
 
-export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) {
+export function ChatClient(props: { id?: string; initialMessages: UIMessage[] }) {
   const router = useRouter();
+
+  const [persistedChatId, setPersistedChatId] = useState<string | null>(
+    props.id ?? null
+  );
 
   const [input, setInput] = useState("");
   const [model, setModel] = useState<string>(MODEL_OPTIONS[0]!.id);
@@ -70,15 +74,26 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
   const [debug, setDebug] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  async function createPersistedChatId(): Promise<string> {
+    const res = await fetch("/api/chats", { method: "POST" });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(text || `Failed to create chat (${res.status})`);
+    }
+    const data = (await res.json()) as { id: string };
+    return data.id;
+  }
+
   const transport = useMemo(() => {
     return new DefaultChatTransport({
       api: "/api/chat",
       // Docs pattern: send only the last message; server loads + persists history.
-      prepareSendMessagesRequest({ messages, id }) {
+      prepareSendMessagesRequest({ messages, id, body }) {
         return {
           body: {
             message: messages[messages.length - 1],
-            id,
+            // Allow per-request override (used for lazy chat creation from /chat draft mode).
+            id: (body as { id?: string } | undefined)?.id ?? id,
             model,
             useSearch,
           },
@@ -88,7 +103,7 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
   }, [model, useSearch]);
 
   const { messages, sendMessage, status, regenerate, setMessages } = useChat({
-    id: props.id,
+    id: persistedChatId ?? undefined,
     messages: props.initialMessages,
     transport,
     onError: (e) => setError(e.message),
@@ -133,17 +148,39 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
     setError(null);
 
     // We rely on transport.prepareSendMessagesRequest to attach { id, model, useSearch }.
-    sendMessage({
+    const outgoing = {
       text: message.text || (hasAttachments ? "Sent with attachments." : ""),
       files: message.files,
-    });
+    } as const;
+
+    // Draft mode: create chat only when the user actually submits something.
+    if (!persistedChatId) {
+      try {
+        const newId = await createPersistedChatId();
+        setPersistedChatId(newId);
+
+        // Ensure this request uses the new persisted chat id.
+        await sendMessage(outgoing, { body: { id: newId } });
+
+        // Update the URL without navigating (keeps files/stream stable).
+        // If the user refreshes, they'll land on /chat/[id] and reload from disk.
+        window.history.replaceState(null, "", `/chat/${newId}`);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to create chat");
+      }
+    } else {
+      await sendMessage(outgoing, { body: { id: persistedChatId } });
+    }
 
     setInput("");
   };
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background font-sans selection:bg-primary/10 selection:text-primary">
-      <ChatSidebar activeChatId={props.id} className="hidden md:flex h-full" />
+      <ChatSidebar
+        activeChatId={persistedChatId ?? ""}
+        className="hidden md:flex h-full"
+      />
 
       <div className="flex h-full w-full flex-1 flex-col overflow-hidden">
         {/* Pinned header (app-like) */}
@@ -195,7 +232,14 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
                       debug={debug}
                       isLastMessage={message.id === messages.at(-1)?.id}
                       message={message}
-                      onRetry={message.role === "assistant" ? regenerate : undefined}
+                          onRetry={
+                            message.role === "assistant"
+                              ? () =>
+                                  regenerate({
+                                    body: { id: persistedChatId ?? undefined },
+                                  })
+                              : undefined
+                          }
                       status={status}
                     />
                   ))
