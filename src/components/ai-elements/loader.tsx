@@ -13,22 +13,19 @@ export const Loader = ({ className, ...props }: LoaderProps) => (
     )}
     {...props}
   >
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1.5">
       <span
-        className="size-2 rounded-full bg-muted-foreground/60 animate-bounce"
-        style={{ animationDelay: "0ms", animationDuration: "600ms" }}
+        className="size-2 rounded-full bg-muted-foreground/40 animate-pulse"
+        style={{ animationDelay: "0ms", animationDuration: "1s" }}
       />
       <span
-        className="size-2 rounded-full bg-muted-foreground/60 animate-bounce"
-        style={{ animationDelay: "150ms", animationDuration: "600ms" }}
+        className="size-2 rounded-full bg-muted-foreground/40 animate-pulse"
+        style={{ animationDelay: "200ms", animationDuration: "1s" }}
       />
       <span
-        className="size-2 rounded-full bg-muted-foreground/60 animate-bounce"
-        style={{ animationDelay: "300ms", animationDuration: "600ms" }}
+        className="size-2 rounded-full bg-muted-foreground/40 animate-pulse"
+        style={{ animationDelay: "400ms", animationDuration: "1s" }}
       />
     </div>
-    <span className="text-xs text-muted-foreground/70 font-medium ml-2">
-      Thinking...
-    </span>
   </div>
 );

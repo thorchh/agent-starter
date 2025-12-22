@@ -371,33 +371,29 @@ export function MessageParts({
                 >
                   <ChainOfThoughtHeader>Thought process</ChainOfThoughtHeader>
                   <ChainOfThoughtContent>
-                    {reasoningParts.map((rp, idx) => (
-                      <ChainOfThoughtStep
-                        // Inline (no label). Use aria-label for accessibility.
-                        key={`${message.id}-reasoning-${idx}`}
-                        aria-label="Reasoning"
-                        role="group"
-                        status={
-                          status === "streaming" &&
-                          isLastMessage &&
-                          message.role === "assistant" &&
-                          rp.state === "streaming"
-                            ? "active"
-                            : "complete"
-                        }
-                        isLast={idx === reasoningParts.length - 1}
-                      >
-                        {rp.text.trim().length > 0 ? (
+                    {reasoningParts
+                      .filter((rp) => rp.text.trim().length > 0)
+                      .map((rp, idx, filteredParts) => (
+                        <ChainOfThoughtStep
+                          // Inline (no label). Use aria-label for accessibility.
+                          key={`${message.id}-reasoning-${idx}`}
+                          aria-label="Reasoning"
+                          role="group"
+                          status={
+                            status === "streaming" &&
+                              isLastMessage &&
+                              message.role === "assistant" &&
+                              rp.state === "streaming"
+                              ? "active"
+                              : "complete"
+                          }
+                          isLast={idx === filteredParts.length - 1}
+                        >
                           <div className="text-muted-foreground text-xs [&_code]:text-[11px] [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:bg-muted/60">
                             <MessageResponse>{rp.text}</MessageResponse>
                           </div>
-                        ) : (
-                          <div className="text-muted-foreground text-xs">
-                            Thinking…
-                          </div>
-                        )}
-                      </ChainOfThoughtStep>
-                    ))}
+                        </ChainOfThoughtStep>
+                      ))}
                   </ChainOfThoughtContent>
                 </ChainOfThought>
               );
@@ -473,32 +469,28 @@ export function MessageParts({
                     <ChainOfThoughtContent>
                       {hasReasoning && (
                         <>
-                          {reasoningParts.map((rp, idx) => (
-                            <ChainOfThoughtStep
-                              key={`${message.id}-reasoning-${idx}`}
-                              aria-label="Reasoning"
-                              role="group"
-                              status={
-                                status === "streaming" &&
-                                isLastMessage &&
-                                message.role === "assistant" &&
-                                rp.state === "streaming"
-                                  ? "active"
-                                  : "complete"
-                              }
-                              className="pb-3"
-                            >
-                              {rp.text.trim().length > 0 ? (
+                          {reasoningParts
+                            .filter((rp) => rp.text.trim().length > 0)
+                            .map((rp, idx) => (
+                              <ChainOfThoughtStep
+                                key={`${message.id}-reasoning-${idx}`}
+                                aria-label="Reasoning"
+                                role="group"
+                                status={
+                                  status === "streaming" &&
+                                    isLastMessage &&
+                                    message.role === "assistant" &&
+                                    rp.state === "streaming"
+                                    ? "active"
+                                    : "complete"
+                                }
+                                className="pb-3"
+                              >
                                 <div className="text-muted-foreground text-xs [&_code]:text-[11px] [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:bg-muted/60">
                                   <MessageResponse>{rp.text}</MessageResponse>
                                 </div>
-                              ) : (
-                                <div className="text-muted-foreground text-xs">
-                                  Thinking…
-                                </div>
-                              )}
-                            </ChainOfThoughtStep>
-                          ))}
+                              </ChainOfThoughtStep>
+                            ))}
                         </>
                       )}
                       {toolParts.map((tp, idx) => {
@@ -510,14 +502,14 @@ export function MessageParts({
                         // “empty steps” in a user-facing thought thread, so we hide them.
                         const webSearchActionType =
                           isWebSearch &&
-                          tp.input &&
-                          typeof tp.input === "object" &&
-                          "action" in tp.input
+                            tp.input &&
+                            typeof tp.input === "object" &&
+                            "action" in tp.input
                             ? (
-                                tp.input as {
-                                  action?: { type?: string; query?: string; url?: string | null };
-                                }
-                              ).action?.type
+                              tp.input as {
+                                action?: { type?: string; query?: string; url?: string | null };
+                              }
+                            ).action?.type
                             : undefined;
                         if (isWebSearch && webSearchActionType && webSearchActionType !== "search") {
                           return null;
@@ -563,32 +555,32 @@ export function MessageParts({
 
                         const query =
                           isWebSearch &&
-                          tp.input &&
-                          typeof tp.input === "object"
+                            tp.input &&
+                            typeof tp.input === "object"
                             ? (tp.input as { action?: { query?: string } }).action
-                                ?.query
+                              ?.query
                             : undefined;
 
                         // For web search, show *that call's* domains (not global sources),
                         // so multiple searches feel like a "thread" of actions.
                         const hostnames =
                           isWebSearch &&
-                          tp.output &&
-                          typeof tp.output === "object"
+                            tp.output &&
+                            typeof tp.output === "object"
                             ? (
-                                (tp.output as {
-                                  sources?: Array<{ type?: string; url?: string }>;
-                                }).sources ?? []
-                              )
-                                .map((s) => {
-                                  if (s?.type !== "url" || !s.url) return null;
-                                  try {
-                                    return new URL(s.url).hostname;
-                                  } catch {
-                                    return null;
-                                  }
-                                })
-                                .filter((h): h is string => Boolean(h))
+                              (tp.output as {
+                                sources?: Array<{ type?: string; url?: string }>;
+                              }).sources ?? []
+                            )
+                              .map((s) => {
+                                if (s?.type !== "url" || !s.url) return null;
+                                try {
+                                  return new URL(s.url).hostname;
+                                } catch {
+                                  return null;
+                                }
+                              })
+                              .filter((h): h is string => Boolean(h))
                             : [];
 
                         // De-dupe hostnames while preserving order for this step.
