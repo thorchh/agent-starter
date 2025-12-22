@@ -294,10 +294,29 @@ export function MessageParts({
           case "file": {
             // Render file parts as attachments. This keeps them “in-stream” so they
             // appear exactly where the SDK emitted them.
+            const isOmitted =
+              typeof part.url === "string" &&
+              part.url.startsWith("local-storage://omitted");
+
             return (
               <Message key={`${message.id}-file-${i}`} from={message.role}>
                 <MessageAttachments>
-                  <MessageAttachment data={part} />
+                  {isOmitted ? (
+                    <div className="rounded-xl border bg-muted/30 px-3 py-2">
+                      <div className="text-sm font-medium">
+                        {part.filename || "Attachment"}
+                      </div>
+                      <div className="text-muted-foreground text-xs">
+                        {part.mediaType}
+                      </div>
+                      <div className="text-muted-foreground mt-1 text-[11px]">
+                        Attachment content isn’t persisted in localStorage. Re-upload
+                        if you need to reference it after refresh.
+                      </div>
+                    </div>
+                  ) : (
+                    <MessageAttachment data={part} />
+                  )}
                 </MessageAttachments>
               </Message>
             );

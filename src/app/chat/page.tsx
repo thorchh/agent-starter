@@ -48,7 +48,7 @@ import {
 } from "@/components/ai-elements/context";
 import { ChatHeader } from "@/components/chat/ChatHeader";
 import { MessageParts } from "@/components/chat/MessageParts";
-import { BugIcon, RefreshCcwIcon, SearchIcon } from "lucide-react";
+import { BugIcon, SearchIcon } from "lucide-react";
 import { MODEL_OPTIONS } from "@/lib/ai/models";
 import { createLocalStorageStore } from "@/lib/chat/store/localStorageStore";
 import type { ChatThreadState } from "@/lib/chat/store/types";
