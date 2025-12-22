@@ -142,10 +142,10 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
   };
 
   return (
-    <div className="flex min-h-screen w-full bg-background font-sans selection:bg-primary/10 selection:text-primary">
-      <ChatSidebar activeChatId={props.id} className="hidden md:flex" />
+    <div className="flex h-screen w-full overflow-hidden bg-background font-sans selection:bg-primary/10 selection:text-primary">
+      <ChatSidebar activeChatId={props.id} className="hidden md:flex h-full" />
 
-      <div className="flex min-h-screen w-full flex-1 flex-col">
+      <div className="flex h-full w-full flex-1 flex-col overflow-hidden">
         {/* Pinned header (app-like) */}
         <div className="sticky top-0 z-20 w-full border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
           <div className="mx-auto w-full max-w-4xl px-4 py-3 md:px-6">
@@ -162,160 +162,164 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
           </div>
         </div>
 
-        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 md:px-0">
-          <Conversation className="flex-1">
-            {/* Add bottom padding so the floating input bubble never covers content */}
-            <ConversationContent className="gap-8 px-0 py-8 pb-40">
-              {messages.length === 0 ? (
-                <div className="flex flex-1 flex-col items-center justify-center gap-8 py-20 text-center animate-fade-in">
-                  <ConversationEmptyState
-                    title="Start a conversation"
-                    description="Try a prompt below or type your own."
-                    className="max-w-md"
-                  />
+        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/40">
+          <div className="mx-auto flex w-full max-w-3xl flex-col px-4 md:px-0">
+            <Conversation className="flex-1">
+              {/* Add bottom padding so the floating input bubble never covers content */}
+              <ConversationContent className="gap-8 px-0 py-8 pb-40">
+                {messages.length === 0 ? (
+                  <div className="flex flex-1 flex-col items-center justify-center gap-8 py-20 text-center animate-fade-in">
+                    <ConversationEmptyState
+                      title="Start a conversation"
+                      description="Try a prompt below or type your own."
+                      className="max-w-md"
+                    />
 
-                  <div className="w-full max-w-xl">
-                    <Suggestions>
-                      {SUGGESTIONS.map((text) => (
-                        <Suggestion
-                          key={text}
-                          suggestion={text}
-                          onClick={(s) => setInput(s)}
-                          className="transition-all hover:scale-[1.01] active:scale-[0.99]"
-                        />
-                      ))}
-                    </Suggestions>
+                    <div className="w-full max-w-xl">
+                      <Suggestions>
+                        {SUGGESTIONS.map((text) => (
+                          <Suggestion
+                            key={text}
+                            suggestion={text}
+                            onClick={(s) => setInput(s)}
+                            className="transition-all hover:scale-[1.01] active:scale-[0.99]"
+                          />
+                        ))}
+                      </Suggestions>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                messages.map((message) => (
-                  <MessageParts
-                    key={message.id}
-                    debug={debug}
-                    isLastMessage={message.id === messages.at(-1)?.id}
-                    message={message}
-                    onRetry={message.role === "assistant" ? regenerate : undefined}
-                    status={status}
-                  />
-                ))
-              )}
+                ) : (
+                  messages.map((message) => (
+                    <MessageParts
+                      key={message.id}
+                      debug={debug}
+                      isLastMessage={message.id === messages.at(-1)?.id}
+                      message={message}
+                      onRetry={message.role === "assistant" ? regenerate : undefined}
+                      status={status}
+                    />
+                  ))
+                )}
 
-              {status === "submitted" && <Loader />}
-            </ConversationContent>
-            <ConversationScrollButton className="bottom-32" />
-          </Conversation>
+                {status === "submitted" && <Loader />}
+              </ConversationContent>
+              <ConversationScrollButton className="bottom-32" />
+            </Conversation>
 
-        {error && (
-          <div className="mx-auto mt-4 w-full max-w-3xl animate-fade-in">
-            <Alert variant="destructive">
-              <AlertDescription className="text-sm font-medium">
-                {error}
-              </AlertDescription>
-            </Alert>
+            {error && (
+              <div className="mx-auto mt-4 w-full max-w-3xl animate-fade-in">
+                <Alert variant="destructive">
+                  <AlertDescription className="text-sm font-medium">
+                    {error}
+                  </AlertDescription>
+                </Alert>
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Floating input bubble like ChatGPT (no blur / no bottom background). */}
-        <div className="sticky bottom-0 z-10 -mx-4 px-4 pb-6 pt-12 md:-mx-0 md:px-0 bg-gradient-to-t from-background via-background to-transparent">
-          <PromptInput
-            className="mx-auto w-full max-w-3xl rounded-3xl border border-border bg-card shadow-xl shadow-black/5 transition-all duration-300"
-            globalDrop
-            multiple
-            onSubmit={handleSubmit}
-          >
-            <PromptInputHeader className="peer empty:hidden px-0 pb-0">
-              <PromptInputAttachments className="pb-0">
-                {(attachment) => <PromptInputAttachment data={attachment} />}
-              </PromptInputAttachments>
-            </PromptInputHeader>
+        <div className="z-10 w-full bg-gradient-to-t from-background via-background to-transparent px-4 pb-6 pt-2 md:px-0">
+          <div className="mx-auto w-full max-w-3xl">
+            <PromptInput
+              className="w-full rounded-3xl border border-border bg-card shadow-xl shadow-black/5 transition-all duration-300"
+              globalDrop
+              multiple
+              onSubmit={handleSubmit}
+            >
+              <PromptInputHeader className="peer empty:hidden px-0 pb-0">
+                <PromptInputAttachments className="pb-0">
+                  {(attachment) => <PromptInputAttachment data={attachment} />}
+                </PromptInputAttachments>
+              </PromptInputHeader>
 
-            <PromptInputBody className="peer-empty:[&>textarea]:pt-5 peer-empty:[&>textarea]:pb-0 peer-empty:[&>textarea]:min-h-[52px]">
-              <PromptInputTextarea
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Type a message…"
-                value={input}
-                className="min-h-[48px] pl-5 py-3 text-base"
-              />
-            </PromptInputBody>
+              <PromptInputBody className="peer-empty:[&>textarea]:pt-5 peer-empty:[&>textarea]:pb-0 peer-empty:[&>textarea]:min-h-[52px]">
+                <PromptInputTextarea
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Type a message…"
+                  value={input}
+                  className="min-h-[48px] pl-5 py-3 text-base"
+                />
+              </PromptInputBody>
 
-            <PromptInputFooter>
-              <PromptInputTools>
-                <PromptInputActionMenu>
-                  <PromptInputActionMenuTrigger className="text-muted-foreground hover:text-foreground transition-colors" />
-                  <PromptInputActionMenuContent>
-                    <PromptInputActionAddAttachments />
-                  </PromptInputActionMenuContent>
-                </PromptInputActionMenu>
+              <PromptInputFooter>
+                <PromptInputTools>
+                  <PromptInputActionMenu>
+                    <PromptInputActionMenuTrigger className="text-muted-foreground hover:text-foreground transition-colors" />
+                    <PromptInputActionMenuContent>
+                      <PromptInputActionAddAttachments />
+                    </PromptInputActionMenuContent>
+                  </PromptInputActionMenu>
 
-                <PromptInputSelect onValueChange={setModel} value={model}>
-                  <PromptInputSelectTrigger className="h-8">
-                    <PromptInputSelectValue />
-                  </PromptInputSelectTrigger>
-                  <PromptInputSelectContent>
-                    {MODEL_OPTIONS.map((m) => (
-                      <PromptInputSelectItem key={m.id} value={m.id}>
-                        {m.label}
-                      </PromptInputSelectItem>
-                    ))}
-                  </PromptInputSelectContent>
-                </PromptInputSelect>
+                  <PromptInputSelect onValueChange={setModel} value={model}>
+                    <PromptInputSelectTrigger className="h-8">
+                      <PromptInputSelectValue />
+                    </PromptInputSelectTrigger>
+                    <PromptInputSelectContent>
+                      {MODEL_OPTIONS.map((m) => (
+                        <PromptInputSelectItem key={m.id} value={m.id}>
+                          {m.label}
+                        </PromptInputSelectItem>
+                      ))}
+                    </PromptInputSelectContent>
+                  </PromptInputSelect>
 
-                <div className="mx-1 h-4 w-px bg-border/50" />
+                  <div className="mx-1 h-4 w-px bg-border/50" />
 
-                <PromptInputButton
-                  aria-pressed={useSearch}
-                  onClick={() => setUseSearch((v) => !v)}
-                  type="button"
-                  variant={useSearch ? "secondary" : "ghost"}
-                  className={cn(
-                    "h-8 transition-all",
-                    useSearch &&
+                  <PromptInputButton
+                    aria-pressed={useSearch}
+                    onClick={() => setUseSearch((v) => !v)}
+                    type="button"
+                    variant={useSearch ? "secondary" : "ghost"}
+                    className={cn(
+                      "h-8 transition-all",
+                      useSearch &&
                       "bg-primary/10 text-primary hover:bg-primary/15"
-                  )}
-                >
-                  <SearchIcon className="size-4" />
-                  <span className="text-xs font-medium">Search</span>
-                </PromptInputButton>
+                    )}
+                  >
+                    <SearchIcon className="size-4" />
+                    <span className="text-xs font-medium">Search</span>
+                  </PromptInputButton>
 
-                <PromptInputButton
-                  aria-pressed={debug}
-                  onClick={() => setDebug((v) => !v)}
-                  type="button"
-                  variant={debug ? "secondary" : "ghost"}
-                  className="h-8"
-                >
-                  <BugIcon className="size-4" />
-                  <span className="text-xs font-medium">Debug</span>
-                </PromptInputButton>
-              </PromptInputTools>
+                  <PromptInputButton
+                    aria-pressed={debug}
+                    onClick={() => setDebug((v) => !v)}
+                    type="button"
+                    variant={debug ? "secondary" : "ghost"}
+                    className="h-8"
+                  >
+                    <BugIcon className="size-4" />
+                    <span className="text-xs font-medium">Debug</span>
+                  </PromptInputButton>
+                </PromptInputTools>
 
-              <div className="flex items-center gap-2">
-                <Context
-                  maxTokens={contextEstimate.maxTokens}
-                  usedTokens={contextEstimate.usedTokens}
-                  usage={contextEstimate.usage}
-                  modelId={model}
-                >
-                  <ContextTrigger className="h-8" />
-                  <ContextContent align="end">
-                    <ContextContentHeader />
-                    <ContextContentBody>
-                      <ContextInputUsage />
-                      <ContextOutputUsage />
-                      <ContextContentFooter />
-                    </ContextContentBody>
-                  </ContextContent>
-                </Context>
-                <PromptInputSubmit status={status} className="size-9 rounded-full" />
-              </div>
-            </PromptInputFooter>
-          </PromptInput>
-          <div className="mt-3 text-center text-[10px] font-medium text-muted-foreground opacity-60">
-            AI can make mistakes. Check important info.
+                <div className="flex items-center gap-2">
+                  <Context
+                    maxTokens={contextEstimate.maxTokens}
+                    usedTokens={contextEstimate.usedTokens}
+                    usage={contextEstimate.usage}
+                    modelId={model}
+                  >
+                    <ContextTrigger className="h-8" />
+                    <ContextContent align="end">
+                      <ContextContentHeader />
+                      <ContextContentBody>
+                        <ContextInputUsage />
+                        <ContextOutputUsage />
+                        <ContextContentFooter />
+                      </ContextContentBody>
+                    </ContextContent>
+                  </Context>
+                  <PromptInputSubmit status={status} className="size-9 rounded-full" />
+                </div>
+              </PromptInputFooter>
+            </PromptInput>
+            <div className="mt-3 text-center text-[10px] font-medium text-muted-foreground opacity-60">
+              AI can make mistakes. Check important info.
+            </div>
           </div>
         </div>
       </div>
-    </div>
     </div>
   );
 }
