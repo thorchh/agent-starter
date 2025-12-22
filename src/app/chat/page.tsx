@@ -222,23 +222,23 @@ export default function ChatPage() {
         {/* Floating input bubble like ChatGPT (no blur / no bottom background). */}
         <div className="sticky bottom-0 z-10 -mx-4 px-4 pb-6 pt-12 md:-mx-0 md:px-0 bg-gradient-to-t from-background via-background to-transparent">
           <PromptInput
-            className="mx-auto w-full max-w-3xl rounded-3xl border bg-card shadow-xl shadow-black/5 ring-1 ring-border/50 focus-within:ring-2 focus-within:ring-primary/20 transition-all duration-300"
+            className="mx-auto w-full max-w-3xl rounded-3xl border border-border bg-card shadow-xl shadow-black/5 transition-all duration-300"
             globalDrop
             multiple
             onSubmit={handleSubmit}
           >
-            <PromptInputHeader>
-              <PromptInputAttachments>
+            <PromptInputHeader className="peer empty:hidden px-0 pb-0">
+              <PromptInputAttachments className="pb-0">
                 {(attachment) => <PromptInputAttachment data={attachment} />}
               </PromptInputAttachments>
             </PromptInputHeader>
 
-            <PromptInputBody>
+            <PromptInputBody className="peer-empty:[&>textarea]:pt-5 peer-empty:[&>textarea]:pb-0 peer-empty:[&>textarea]:min-h-[52px]">
               <PromptInputTextarea
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Type a message…"
                 value={input}
-                className="min-h-[52px] py-4 text-base"
+                className="min-h-[48px] pl-5 py-3 text-base"
               />
             </PromptInputBody>
 

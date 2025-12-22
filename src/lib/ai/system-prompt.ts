@@ -26,6 +26,10 @@ export const SYSTEM_PROMPT = [
   "Formatting:",
   "- Use Markdown for code blocks and lists.",
   "- When returning code, ensure it is complete and copyable.",
+  "- Use headers (#, ##) to structure long responses.",
+  "- Use bolding (**text**) for emphasis.",
+  "- Use lists (-, 1.) for readability.",
+  "- Keep paragraphs short and readable.",
 ].join("\\n");
 
 
