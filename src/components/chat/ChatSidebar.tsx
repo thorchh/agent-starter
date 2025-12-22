@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Trash2Icon, PlusIcon, SearchIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 type ChatSummary = {
@@ -118,9 +119,13 @@ export function ChatSidebar(props: {
         )}
 
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-8 text-xs text-muted-foreground/50 gap-2">
-            <div className="size-4 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
-            <span>Loading chats...</span>
+          <div className="flex flex-col gap-2 px-2">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="flex flex-col gap-2 rounded-lg px-2 py-3">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-1/2 opacity-50" />
+              </div>
+            ))}
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -148,15 +153,20 @@ export function ChatSidebar(props: {
                     onClick={() => router.push(`/chat/${c.id}`)}
                     type="button"
                   >
-                    <div className={cn("truncate text-sm font-medium", active ? "text-primary" : "text-foreground")}>
+                    <div
+                      className={cn(
+                        "truncate text-sm font-medium transition-all duration-200 ease-in-out group-hover:pr-8",
+                        active ? "text-primary" : "text-foreground"
+                      )}
+                    >
                       {c.title}
                     </div>
                     <div className="truncate text-[10px] opacity-60 mt-0.5">
                       {new Date(c.updatedAt).toLocaleDateString(undefined, {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: 'numeric',
-                        minute: 'numeric'
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "numeric",
                       })}
                     </div>
                   </button>
