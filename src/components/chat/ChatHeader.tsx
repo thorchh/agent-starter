@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { cn } from "@/lib/utils";
 import type { ComponentProps, ReactNode } from "react";
 import { PlusIcon } from "lucide-react";
@@ -46,7 +47,8 @@ export function ChatHeader({
         <div className="truncate text-muted-foreground text-[11px] font-medium tracking-wide uppercase opacity-80">{subtitle}</div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
+        <ThemeToggle />
         {actions}
         {onNewChat && (
           <Button

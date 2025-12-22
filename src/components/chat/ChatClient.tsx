@@ -3,7 +3,7 @@
 import { useChat } from "@ai-sdk/react";
 import type { UIMessage } from "ai";
 import { DefaultChatTransport } from "ai";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -109,6 +109,21 @@ export function ChatClient(props: { id?: string; initialMessages: UIMessage[] })
     transport,
     onError: (e) => setError(e.message),
   });
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      // Cmd+K or Ctrl+K: New chat
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setMessages([]);
+        router.push("/chat");
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [router, setMessages]);
 
   const canNewChat = status === "ready";
 
@@ -218,12 +233,34 @@ export function ChatClient(props: { id?: string; initialMessages: UIMessage[] })
               {/* Add bottom padding so the floating input bubble never covers content */}
               <ConversationContent className="gap-8 px-0 py-8 pb-40">
                 {messages.length === 0 ? (
-                  <div className="flex flex-1 flex-col items-center justify-center gap-8 py-20 text-center animate-fade-in">
-                    <ConversationEmptyState
-                      title="Start a conversation"
-                      description="Try a prompt below or type your own."
-                      className="max-w-md"
-                    />
+                  <div className="flex flex-1 flex-col items-center justify-center gap-10 py-16 text-center animate-fade-in">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 text-primary">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="32"
+                          height="32"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M12 8V4H8" />
+                          <rect width="16" height="12" x="4" y="8" rx="2" />
+                          <path d="m2 14 4.5-3L8 12l3-2 4 2.5 6-3.5" />
+                        </svg>
+                      </div>
+                      <div className="space-y-2">
+                        <h2 className="text-2xl font-semibold tracking-tight bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text text-transparent">
+                          How can I help you today?
+                        </h2>
+                        <p className="text-muted-foreground text-sm max-w-sm">
+                          Ask me anything or try one of these suggestions to get started.
+                        </p>
+                      </div>
+                    </div>
 
                     <div className="w-full max-w-xl">
                       <Suggestions>
