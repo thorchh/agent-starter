@@ -75,6 +75,7 @@ Open:
 - `.chats/`: ignored from git; created on demand
 
 Attachments note:
+
 - This starter **persists attachment metadata only** (filename/mediaType/size). File bytes/URLs are not stored; the UI will ask you to re-upload after refresh. In production, swap in a blob store (S3/R2/Vercel Blob) and persist blob URLs/keys instead.
 
 ### How tool calling works

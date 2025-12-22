@@ -2,7 +2,7 @@ import "server-only";
 
 import { generateId, type UIMessage } from "ai";
 import { existsSync, mkdirSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 /**
@@ -35,6 +35,12 @@ function getChatFile(id: string): string {
  * extension point for real blob storage later.
  */
 export const OMITTED_ATTACHMENT_URL = "omitted://attachment";
+
+export type ChatSummary = {
+  id: string;
+  title: string;
+  updatedAt: string; // ISO
+};
 
 function safeJsonStringify(value: unknown) {
   try {
@@ -98,6 +104,62 @@ export async function loadChat(id: string): Promise<UIMessage[]> {
 export async function saveChat(opts: { id: string; messages: UIMessage[] }) {
   const sanitized = sanitizeMessagesForPersistence(opts.messages);
   await writeFile(getChatFile(opts.id), JSON.stringify(sanitized, null, 2), "utf8");
+}
+
+function titleFromMessages(messages: UIMessage[], id: string): string {
+  for (const m of messages) {
+    if (m.role !== "user") continue;
+    for (const p of m.parts) {
+      if (p.type === "text") {
+        const t = p.text.trim().replace(/\s+/g, " ");
+        if (t.length) return t.length > 60 ? `${t.slice(0, 60)}…` : t;
+      }
+    }
+  }
+  return `Chat ${id.slice(0, 6)}`;
+}
+
+export async function listChats(): Promise<ChatSummary[]> {
+  ensureChatDir();
+  const entries = await readdir(CHAT_DIR, { withFileTypes: true });
+  const files = entries
+    .filter((e) => e.isFile() && e.name.endsWith(".json"))
+    .map((e) => e.name);
+
+  const summaries = await Promise.all(
+    files.map(async (filename) => {
+      const id = filename.replace(/\.json$/, "");
+      const filePath = path.join(CHAT_DIR, filename);
+
+      const [raw, fileStat] = await Promise.all([
+        readFile(filePath, "utf8").catch(() => "[]"),
+        stat(filePath).catch(() => null),
+      ]);
+
+      let messages: UIMessage[] = [];
+      try {
+        messages = JSON.parse(raw) as UIMessage[];
+      } catch {
+        messages = [];
+      }
+
+      const updatedAt = fileStat
+        ? fileStat.mtime.toISOString()
+        : new Date(0).toISOString();
+
+      return {
+        id,
+        title: titleFromMessages(messages, id),
+        updatedAt,
+      } satisfies ChatSummary;
+    })
+  );
+
+  return summaries.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+export async function deleteChat(id: string): Promise<void> {
+  await unlink(getChatFile(id));
 }
 
 

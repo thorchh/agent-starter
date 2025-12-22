@@ -47,6 +47,7 @@ import {
   ContextTrigger,
 } from "@/components/ai-elements/context";
 import { ChatHeader } from "@/components/chat/ChatHeader";
+import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { MessageParts } from "@/components/chat/MessageParts";
 import { BugIcon, SearchIcon } from "lucide-react";
 import { MODEL_OPTIONS } from "@/lib/ai/models";
@@ -93,7 +94,7 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
     onError: (e) => setError(e.message),
   });
 
-  const canClear = messages.length > 0 && status === "ready";
+  const canNewChat = status === "ready";
 
   const contextEstimate = useMemo(() => {
     const inputTokens = messages
@@ -141,65 +142,68 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
   };
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-background font-sans selection:bg-primary/10 selection:text-primary">
-      {/* Pinned header (app-like) */}
-      <div className="sticky top-0 z-20 w-full border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
-        <div className="mx-auto w-full max-w-4xl px-4 py-3 md:px-6">
-          <ChatHeader
-            canClear={canClear}
-            className="px-0 py-0"
-            onClear={() => {
-              setMessages([]);
-              router.push("/chat");
-            }}
-            subtitle="AI Elements UI • AI SDK streaming • doc-aligned persistence"
-            title="Agent Starter"
-          />
+    <div className="flex min-h-screen w-full bg-background font-sans selection:bg-primary/10 selection:text-primary">
+      <ChatSidebar activeChatId={props.id} className="hidden md:flex" />
+
+      <div className="flex min-h-screen w-full flex-1 flex-col">
+        {/* Pinned header (app-like) */}
+        <div className="sticky top-0 z-20 w-full border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
+          <div className="mx-auto w-full max-w-4xl px-4 py-3 md:px-6">
+            <ChatHeader
+              canNewChat={canNewChat}
+              className="px-0 py-0"
+              onNewChat={() => {
+                setMessages([]);
+                router.push("/chat");
+              }}
+              subtitle="AI Elements UI • AI SDK streaming • doc-aligned persistence"
+              title="Agent Starter"
+            />
+          </div>
         </div>
-      </div>
 
-      <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 md:px-0">
-        <Conversation className="flex-1">
-          {/* Add bottom padding so the floating input bubble never covers content */}
-          <ConversationContent className="gap-8 px-0 py-8 pb-40">
-            {messages.length === 0 ? (
-              <div className="flex flex-1 flex-col items-center justify-center gap-8 py-20 text-center animate-fade-in">
-                <ConversationEmptyState
-                  title="Start a conversation"
-                  description="Try a prompt below or type your own."
-                  className="max-w-md"
-                />
+        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 md:px-0">
+          <Conversation className="flex-1">
+            {/* Add bottom padding so the floating input bubble never covers content */}
+            <ConversationContent className="gap-8 px-0 py-8 pb-40">
+              {messages.length === 0 ? (
+                <div className="flex flex-1 flex-col items-center justify-center gap-8 py-20 text-center animate-fade-in">
+                  <ConversationEmptyState
+                    title="Start a conversation"
+                    description="Try a prompt below or type your own."
+                    className="max-w-md"
+                  />
 
-                <div className="w-full max-w-xl">
-                  <Suggestions>
-                    {SUGGESTIONS.map((text) => (
-                      <Suggestion
-                        key={text}
-                        suggestion={text}
-                        onClick={(s) => setInput(s)}
-                        className="transition-all hover:scale-[1.01] active:scale-[0.99]"
-                      />
-                    ))}
-                  </Suggestions>
+                  <div className="w-full max-w-xl">
+                    <Suggestions>
+                      {SUGGESTIONS.map((text) => (
+                        <Suggestion
+                          key={text}
+                          suggestion={text}
+                          onClick={(s) => setInput(s)}
+                          className="transition-all hover:scale-[1.01] active:scale-[0.99]"
+                        />
+                      ))}
+                    </Suggestions>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              messages.map((message) => (
-                <MessageParts
-                  key={message.id}
-                  debug={debug}
-                  isLastMessage={message.id === messages.at(-1)?.id}
-                  message={message}
-                  onRetry={message.role === "assistant" ? regenerate : undefined}
-                  status={status}
-                />
-              ))
-            )}
+              ) : (
+                messages.map((message) => (
+                  <MessageParts
+                    key={message.id}
+                    debug={debug}
+                    isLastMessage={message.id === messages.at(-1)?.id}
+                    message={message}
+                    onRetry={message.role === "assistant" ? regenerate : undefined}
+                    status={status}
+                  />
+                ))
+              )}
 
-            {status === "submitted" && <Loader />}
-          </ConversationContent>
-          <ConversationScrollButton className="bottom-32" />
-        </Conversation>
+              {status === "submitted" && <Loader />}
+            </ConversationContent>
+            <ConversationScrollButton className="bottom-32" />
+          </Conversation>
 
         {error && (
           <div className="mx-auto mt-4 w-full max-w-3xl animate-fade-in">
@@ -311,6 +315,7 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }

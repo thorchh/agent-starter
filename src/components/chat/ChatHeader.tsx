@@ -3,13 +3,13 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ComponentProps, ReactNode } from "react";
-import { Trash2Icon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 
 export type ChatHeaderProps = ComponentProps<"header"> & {
   title?: string;
   subtitle?: string;
-  onClear?: () => void;
-  canClear?: boolean;
+  onNewChat?: () => void;
+  canNewChat?: boolean;
   actions?: ReactNode;
 };
 
@@ -28,8 +28,8 @@ export function ChatHeader({
   className,
   title = "Agent Starter",
   subtitle = "Streaming chat + tools, built with AI Elements",
-  onClear,
-  canClear = true,
+  onNewChat,
+  canNewChat = true,
   actions,
   ...props
 }: ChatHeaderProps) {
@@ -48,17 +48,17 @@ export function ChatHeader({
 
       <div className="flex items-center gap-2">
         {actions}
-        {onClear && (
+        {onNewChat && (
           <Button
-            disabled={!canClear}
-            onClick={onClear}
+            disabled={!canNewChat}
+            onClick={onNewChat}
             size="sm"
             type="button"
             variant="ghost"
-            className="h-8 px-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+            className="h-8 px-2 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           >
-            <Trash2Icon className="mr-1.5 size-3.5" />
-            <span className="text-xs font-medium">Clear</span>
+            <PlusIcon className="mr-1.5 size-3.5" />
+            <span className="text-xs font-medium">New chat</span>
           </Button>
         )}
       </div>
