@@ -1,3 +1,31 @@
+// ============================================================================
+// CHAT API ROUTE - POST /api/chat
+// ============================================================================
+// This is the main streaming chat endpoint.
+//
+// FLOW:
+// 1. Client sends a new message via useChat hook
+// 2. Server loads chat history from storage
+// 3. Validates message and tools
+// 4. Streams AI response back to client
+// 5. Saves updated chat to storage when complete
+//
+// FEATURES:
+// - Streaming responses (Server-Sent Events)
+// - Multi-step tool calling
+// - Web search (optional, via OpenAI built-in)
+// - Reasoning summaries (o-series models)
+// - Chat persistence (file-based dev, database in production)
+//
+// SECURITY:
+// - Model allowlist validation (prevents arbitrary model access)
+// - Tool validation (ensures type safety)
+// ============================================================================
+
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
 import {
   convertToModelMessages,
   stepCountIs,
@@ -14,46 +42,101 @@ import { SYSTEM_PROMPT } from "@/lib/ai/system-prompt";
 import { tools } from "@/lib/ai/tools";
 import { loadChat, saveChat } from "@/lib/chat/server/fileChatStore";
 
-// Allow streaming responses up to 30 seconds on Vercel.
-export const maxDuration = 30;
+// ============================================================================
+// CONFIGURATION
+// ============================================================================
 
+/**
+ * Maximum duration for streaming responses (Vercel serverless limit).
+ * Increase this if you need longer-running requests.
+ */
+export const maxDuration = 30; // seconds
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+/**
+ * Request body structure from client (useChat hook).
+ */
 type ChatRequestBody = {
+  /** New message from user */
   message: UIMessage;
+
+  /** Chat ID for loading/saving history */
   id: string;
+
+  /** Optional model override (defaults to env AI_MODEL or "openai/gpt-5") */
   model?: string;
+
+  /** Whether to enable web search (OpenAI built-in) */
   useSearch?: boolean;
 };
 
+// ============================================================================
+// MAIN HANDLER
+// ============================================================================
+
+/**
+ * Handle streaming chat requests.
+ *
+ * This function orchestrates the entire chat flow:
+ * - Validates inputs
+ * - Loads chat history
+ * - Configures AI model and tools
+ * - Streams response to client
+ * - Saves updated conversation
+ */
 export async function POST(req: Request) {
   try {
+    // ──────────────────────────────────────────────────────────────────────
+    // 1. PARSE AND VALIDATE REQUEST
+    // ──────────────────────────────────────────────────────────────────────
     const body = (await req.json()) as ChatRequestBody;
+
+    // Validate chat ID
     const id = body.id?.trim();
     if (!id) {
       return Response.json({ error: "Missing chat id" }, { status: 400 });
     }
+
+    // Validate message
     const message = body.message;
     if (!message) {
       return Response.json({ error: "Missing message" }, { status: 400 });
     }
 
-    // Load previous messages from storage (docs pattern: client sends only last message).
+    // ──────────────────────────────────────────────────────────────────────
+    // 2. LOAD CHAT HISTORY
+    // ──────────────────────────────────────────────────────────────────────
+    // Client sends only the new message; server loads full history from storage.
+    // This keeps client payloads small and ensures consistency.
     const previousMessages = await loadChat(id);
     const messages = [...previousMessages, message];
+
+    // ──────────────────────────────────────────────────────────────────────
+    // 3. CONFIGURE MODEL AND FEATURES
+    // ──────────────────────────────────────────────────────────────────────
     const requestedModel = body.model?.trim() || getDefaultModelId();
     const useSearch = Boolean(body.useSearch);
 
-    // Security: do not allow arbitrary model IDs from the client.
+    // SECURITY: Validate model against allowlist (prevents arbitrary model access)
     assertAllowedModelId(requestedModel);
 
-    // Feature flag: keep reasoning off by default (some orgs disallow it).
-    // Set ENABLE_REASONING=true later to re-enable reasoning streaming + summaries.
+    // ──────────────────────────────────────────────────────────────────────
+    // 4. CONFIGURE REASONING (O-SERIES MODELS)
+    // ──────────────────────────────────────────────────────────────────────
+    // Reasoning features for o-series models (o1, o4-mini, etc.).
+    // Environment variables:
+    // - ENABLE_REASONING=true - Enable reasoning summaries
+    // - OPENAI_REASONING_SUMMARY=auto|detailed - Detail level
+    // - OPENAI_REASONING_EFFORT=high|medium|low - Effort level
+
     const enableReasoning =
       (process.env.ENABLE_REASONING ?? "").toLowerCase() === "true";
 
-    // --- OpenAI "Reasoning Output" (reasoning summaries) ---
-    // Per OpenAI provider docs, reasoning summaries are only emitted when
-    // `providerOptions.openai.reasoningSummary` is set. When enabled, they stream as
-    // `part.type === "reasoning"` (and show up in AI Elements via `sendReasoning: true`).
+    // OpenAI reasoning configuration
+    // When enabled, reasoning streams as part.type === "reasoning"
     // Ref: https://ai-sdk.dev/providers/ai-sdk-providers/openai
     const openaiReasoningSummary = (process.env.OPENAI_REASONING_SUMMARY?.trim() ||
       "auto") as "auto" | "detailed";
@@ -62,22 +145,31 @@ export async function POST(req: Request) {
 
     const shouldEnableOpenAIReasoningSummary =
       enableReasoning &&
-      // OpenAI reasoning models (per docs/examples):
+      // OpenAI reasoning models: gpt-5 and o-series (o1, o4-mini, etc.)
       (requestedModel.startsWith("openai/gpt-5") ||
         requestedModel.startsWith("openai/o"));
 
-    // --- Search (opt-in from the UI) ---
-    // The OpenAI provider defines a built-in `web_search` tool.
-    // We only register it when the user enables Search to keep the default agent minimal.
+    // ──────────────────────────────────────────────────────────────────────
+    // 5. CONFIGURE WEB SEARCH (OPTIONAL)
+    // ──────────────────────────────────────────────────────────────────────
+    // OpenAI provides a built-in web_search tool for GPT models.
+    // We only enable it when the user toggles search in the UI.
+
     const canUseOpenAIWebSearch =
       requestedModel.startsWith("openai/") ||
       requestedModel.startsWith("gateway/openai/");
 
-    // NOTE: `validateUIMessages` expects a `{ [name]: Tool<unknown, unknown> }` map.
-    // Some provider-built tools (like `openai.tools.webSearch()`) are typed with `{}` inputs,
-    // which can be too specific for the index signature. We normalize types here.
+    // ──────────────────────────────────────────────────────────────────────
+    // 6. ASSEMBLE TOOLS
+    // ──────────────────────────────────────────────────────────────────────
+    // Combine our custom tools with optional provider tools (like web_search).
+    // Type casting needed for AI SDK's tool validation.
+
     const requestTools: Record<string, Tool<unknown, unknown>> = {
+      // Custom tools from src/lib/ai/tools/index.ts
       ...(tools as unknown as Record<string, Tool<unknown, unknown>>),
+
+      // OpenAI web search (conditional)
       ...(useSearch && canUseOpenAIWebSearch
         ? ({
             web_search: openai.tools.webSearch() as unknown as Tool<
@@ -88,13 +180,20 @@ export async function POST(req: Request) {
         : {}),
     };
 
-    // Validate UI messages against the current tool schemas before sending to the model.
-    // This protects against stale/invalid stored tool calls and keeps the agent robust.
+    // ──────────────────────────────────────────────────────────────────────
+    // 7. VALIDATE MESSAGES
+    // ──────────────────────────────────────────────────────────────────────
+    // Validate that all tool calls in stored messages match current tool schemas.
+    // This protects against schema changes breaking stored conversations.
     const validatedMessages = await validateUIMessages({
       messages,
       tools: requestTools,
     });
 
+    // ──────────────────────────────────────────────────────────────────────
+    // 8. BUILD SYSTEM PROMPT
+    // ──────────────────────────────────────────────────────────────────────
+    // Add search-specific instructions when search is enabled
     const system =
       SYSTEM_PROMPT +
       (useSearch && canUseOpenAIWebSearch
@@ -107,16 +206,28 @@ export async function POST(req: Request) {
           "- Write naturally and concisely - just add the [1], [2] markers where claims need citations."
         : "");
 
+    // ──────────────────────────────────────────────────────────────────────
+    // 9. STREAM AI RESPONSE
+    // ──────────────────────────────────────────────────────────────────────
     const result = streamText({
+      // Model instance from provider
       model: getModel(requestedModel),
+
+      // System instructions
       system,
+
+      // Convert UI messages to model format
       messages: convertToModelMessages(validatedMessages),
+
+      // Available tools
       tools: requestTools,
-      // Provider-specific options:
-      // - OpenAI reasoning models (o-series) can be nudged to spend more compute on reasoning via `reasoningEffort`.
-      //   This typically increases reasoning *tokens* but does not necessarily expose chain-of-thought text.
-      // - To get *visible* "thinking output" in the stream, OpenAI requires `reasoningSummary`.
-      //   When enabled, summaries show up as stream events of type `reasoning`.
+
+      // ──────────────────────────────────────────────────────────────────
+      // PROVIDER-SPECIFIC OPTIONS
+      // ──────────────────────────────────────────────────────────────────
+      // OpenAI reasoning configuration (o-series models):
+      // - reasoningEffort: Controls compute spend on reasoning
+      // - reasoningSummary: Enables visible "thinking" in stream
       providerOptions: shouldEnableOpenAIReasoningSummary
         ? {
             openai: {
@@ -128,33 +239,48 @@ export async function POST(req: Request) {
           }
         : undefined,
 
-      // Multi-step tools:
-      // The AI SDK adds `step-start` parts when multiple steps are used.
-      // We cap steps so the agent can use tools but won't loop forever.
-      //
-      // NOTE: We intentionally do NOT force exactly N steps; we just cap the run.
-      // `stopWhen` is evaluated when tool results exist in the last step.
+      // ──────────────────────────────────────────────────────────────────
+      // MULTI-STEP TOOL CALLING
+      // ──────────────────────────────────────────────────────────────────
+      // Cap tool calling at 5 steps to prevent infinite loops.
+      // The AI can use tools iteratively but won't run forever.
       stopWhen: stepCountIs(5),
     });
 
-    // Optional but recommended for persistence: ensure the stream runs to completion
-    // even if the client disconnects so `onFinish` can save the conversation.
-    result.consumeStream(); // no await
+    // ──────────────────────────────────────────────────────────────────────
+    // 10. ENSURE STREAM COMPLETION (FOR PERSISTENCE)
+    // ──────────────────────────────────────────────────────────────────────
+    // Continue streaming even if client disconnects, so onFinish() saves the chat.
+    // This prevents data loss when users navigate away mid-response.
+    result.consumeStream(); // no await - runs in background
 
-    // Use UI message streaming so the client receives `message.parts`.
-    // Opt-in to streaming "reasoning" + "sources" parts (as shown in AI Elements chatbot example).
-    // Ref: https://ai-sdk.dev/elements/examples/chatbot
+    // ──────────────────────────────────────────────────────────────────────
+    // 11. RETURN STREAMING RESPONSE
+    // ──────────────────────────────────────────────────────────────────────
+    // Convert to UI message stream (includes reasoning + sources for AI Elements)
     return result.toUIMessageStreamResponse({
+      // Enable reasoning parts (o-series models)
       sendReasoning: enableReasoning,
+
+      // Enable source citations (web search)
       sendSources: true,
+
+      // Original messages for diff detection
       originalMessages: validatedMessages,
+
+      // Save chat when stream completes
       onFinish: async ({ messages }) => {
         await saveChat({ id, messages });
       },
     });
   } catch (err) {
-    // In local dev, the most common failure is missing provider credentials.
-    // Returning JSON here ensures the client gets a readable error and `useChat` can trigger `onError`.
+    // ──────────────────────────────────────────────────────────────────────
+    // ERROR HANDLING
+    // ──────────────────────────────────────────────────────────────────────
+    // Common errors:
+    // - Missing API keys (check .env.local)
+    // - Invalid model ID (check allowlist in src/lib/ai/models.ts)
+    // - Network issues (check provider status)
     const message =
       err instanceof Error ? err.message : "Unknown error in /api/chat";
     return Response.json({ error: message }, { status: 500 });
