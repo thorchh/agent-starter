@@ -117,6 +117,29 @@ export function MessageParts({
     [message.parts]
   );
 
+  const reasoningParts = useMemo(
+    () => message.parts.filter((p) => p.type === "reasoning"),
+    [message.parts]
+  );
+
+  const firstReasoningPartIndex = useMemo(() => {
+    if (reasoningParts.length === 0) return -1;
+    return message.parts.findIndex((p) => p.type === "reasoning");
+  }, [message.parts, reasoningParts.length]);
+
+  const lastReasoningPartIndex = useMemo(() => {
+    for (let i = message.parts.length - 1; i >= 0; i--) {
+      if (message.parts[i]?.type === "reasoning") return i;
+    }
+    return -1;
+  }, [message.parts]);
+
+  const hasReasoning = useMemo(() => {
+    if (reasoningParts.length === 0) return false;
+    if (reasoningParts.some((p) => p.text.trim().length > 0)) return true;
+    return reasoningParts.some((p) => p.state === "streaming");
+  }, [reasoningParts]);
+
   const firstToolPartIndex = useMemo(() => {
     if (toolParts.length === 0) return -1;
     return message.parts.findIndex((p) => isToolOrDynamicToolUIPart(p));
@@ -129,16 +152,20 @@ export function MessageParts({
     return -1;
   }, [message.parts]);
 
-  const hasStreamingFinalTextAfterTools = useMemo(() => {
-    // If the assistant is streaming text after tools completed, we treat that as
-    // "final answer streaming" and auto-collapse the thought thread.
-    if (lastToolPartIndex === -1) return false;
-    for (let i = lastToolPartIndex + 1; i < message.parts.length; i++) {
+  const lastThoughtPartIndex = useMemo(() => {
+    return Math.max(lastToolPartIndex, lastReasoningPartIndex);
+  }, [lastReasoningPartIndex, lastToolPartIndex]);
+
+  const hasStreamingFinalTextAfterThought = useMemo(() => {
+    // If the assistant is streaming text after the thought thread (reasoning/tools),
+    // we treat that as "final answer streaming" and auto-collapse the thread.
+    if (lastThoughtPartIndex === -1) return false;
+    for (let i = lastThoughtPartIndex + 1; i < message.parts.length; i++) {
       const p = message.parts[i];
       if (p?.type === "text" && p.state === "streaming") return true;
     }
     return false;
-  }, [lastToolPartIndex, message.parts]);
+  }, [lastThoughtPartIndex, message.parts]);
 
   // --- Thought thread (ChainOfThought) open/close behavior ---
   // We avoid effects here (linted in this repo) and instead derive open state:
@@ -150,12 +177,15 @@ export function MessageParts({
   );
 
   const shouldShowThoughtThread =
-    !debug && message.role === "assistant" && isLastMessage && toolParts.length > 0;
+    !debug &&
+    message.role === "assistant" &&
+    isLastMessage &&
+    (toolParts.length > 0 || hasReasoning);
 
   const autoThoughtOpen =
     shouldShowThoughtThread &&
     (status === "submitted" || status === "streaming") &&
-    !hasStreamingFinalTextAfterTools;
+    !hasStreamingFinalTextAfterThought;
 
   const thoughtOpen = shouldShowThoughtThread
     ? (thoughtOpenOverride ?? autoThoughtOpen)
@@ -324,20 +354,67 @@ export function MessageParts({
           }
 
           case "reasoning": {
+            // In clean mode we show reasoning as part of a single, unified "Thought process"
+            // thread (ChainOfThought) instead of rendering many separate reasoning blocks.
+            if (!debug) {
+              // If tools exist, we’ll render the thought thread at the first tool part.
+              if (toolParts.length > 0) return null;
+              // If no tools exist, render the thread once at the first reasoning part.
+              if (i !== firstReasoningPartIndex) return null;
+
+              return (
+                <ChainOfThought
+                  key={`${message.id}-thought-thread`}
+                  className="w-full pb-2"
+                  onOpenChange={setThoughtOpenOverride}
+                  open={thoughtOpen}
+                >
+                  <ChainOfThoughtHeader>Thought process</ChainOfThoughtHeader>
+                  <ChainOfThoughtContent>
+                    {reasoningParts.map((rp, idx) => (
+                      <ChainOfThoughtStep
+                        // Inline (no label). Use aria-label for accessibility.
+                        key={`${message.id}-reasoning-${idx}`}
+                        aria-label="Reasoning"
+                        role="group"
+                        status={
+                          status === "streaming" &&
+                          isLastMessage &&
+                          message.role === "assistant" &&
+                          rp.state === "streaming"
+                            ? "active"
+                            : "complete"
+                        }
+                        isLast={idx === reasoningParts.length - 1}
+                      >
+                        {rp.text.trim().length > 0 ? (
+                          <div className="text-muted-foreground text-xs [&_code]:text-[11px] [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:bg-muted/60">
+                            <MessageResponse>{rp.text}</MessageResponse>
+                          </div>
+                        ) : (
+                          <div className="text-muted-foreground text-xs">
+                            Thinking…
+                          </div>
+                        )}
+                      </ChainOfThoughtStep>
+                    ))}
+                  </ChainOfThoughtContent>
+                </ChainOfThought>
+              );
+            }
+
+            // Debug mode: keep individual Reasoning parts to reflect the raw stream.
             // Some providers/models emit a `reasoning` part without any readable text
             // (e.g. only timing metadata). In that case, showing the collapsible UI
             // is confusing—hide it unless there is content or it's actively streaming.
             const hasReasoningText = part.text.trim().length > 0;
-            if (!hasReasoningText && part.state !== "streaming") {
-              return null;
-            }
+            if (!hasReasoningText && part.state !== "streaming") return null;
 
             return (
               <Reasoning
                 key={`${message.id}-reasoning-${i}`}
                 className="w-full"
                 isStreaming={
-                  // Reasoning can stream as a dedicated part. Prefer the part's own state.
                   status === "streaming" &&
                   isLastMessage &&
                   message.role === "assistant" &&
@@ -394,6 +471,36 @@ export function MessageParts({
                   >
                     <ChainOfThoughtHeader>Thought process</ChainOfThoughtHeader>
                     <ChainOfThoughtContent>
+                      {hasReasoning && (
+                        <>
+                          {reasoningParts.map((rp, idx) => (
+                            <ChainOfThoughtStep
+                              key={`${message.id}-reasoning-${idx}`}
+                              aria-label="Reasoning"
+                              role="group"
+                              status={
+                                status === "streaming" &&
+                                isLastMessage &&
+                                message.role === "assistant" &&
+                                rp.state === "streaming"
+                                  ? "active"
+                                  : "complete"
+                              }
+                              className="pb-3"
+                            >
+                              {rp.text.trim().length > 0 ? (
+                                <div className="text-muted-foreground text-xs [&_code]:text-[11px] [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:bg-muted/60">
+                                  <MessageResponse>{rp.text}</MessageResponse>
+                                </div>
+                              ) : (
+                                <div className="text-muted-foreground text-xs">
+                                  Thinking…
+                                </div>
+                              )}
+                            </ChainOfThoughtStep>
+                          ))}
+                        </>
+                      )}
                       {toolParts.map((tp, idx) => {
                         const toolName = getToolOrDynamicToolName(tp);
                         const isWebSearch = toolName === "web_search";

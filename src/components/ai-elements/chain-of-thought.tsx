@@ -110,7 +110,13 @@ export const ChainOfThoughtHeader = memo(
 
 export type ChainOfThoughtStepProps = ComponentProps<"div"> & {
   icon?: LucideIcon;
-  label: ReactNode;
+  /**
+   * Optional label shown next to the dot/icon.
+   *
+   * Docs show label as optional; allowing omission enables truly “inline” steps
+   * where the content is the primary UI (e.g. streamed reasoning text).
+   */
+  label?: ReactNode;
   description?: ReactNode;
   status?: "complete" | "active" | "pending";
   /**
@@ -154,7 +160,7 @@ export const ChainOfThoughtStep = memo(
           )}
         </div>
         <div className="flex-1 space-y-2 overflow-hidden">
-          <div>{label}</div>
+          {label != null ? <div>{label}</div> : null}
           {description && (
             <div className="text-muted-foreground text-xs">{description}</div>
           )}
