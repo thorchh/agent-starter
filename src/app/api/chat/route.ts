@@ -32,6 +32,7 @@ import {
   stepCountIs,
   streamText,
   validateUIMessages,
+  TypeValidationError,
   type Tool,
   type UIMessage,
 } from "ai";
@@ -95,15 +96,24 @@ export async function POST(req: Request) {
     // ──────────────────────────────────────────────────────────────────────
     const body = (await req.json()) as ChatRequestBody;
 
+    console.log("[API /api/chat] POST request received", {
+      chatId: body.id,
+      hasMessage: Boolean(body.message),
+      model: body.model,
+      useSearch: body.useSearch
+    });
+
     // Validate chat ID
     const id = body.id?.trim();
     if (!id) {
+      console.error("[API /api/chat] Missing chat ID");
       return Response.json({ error: "Missing chat id" }, { status: 400 });
     }
 
     // Validate message
     const message = body.message;
     if (!message) {
+      console.error("[API /api/chat] Missing message");
       return Response.json({ error: "Missing message" }, { status: 400 });
     }
 
@@ -112,7 +122,17 @@ export async function POST(req: Request) {
     // ──────────────────────────────────────────────────────────────────────
     // Client sends only the new message; server loads full history from storage.
     // This keeps client payloads small and ensures consistency.
-    const previousMessages = await loadChat(id);
+    let previousMessages: UIMessage[] = [];
+    try {
+      previousMessages = await loadChat(id);
+    } catch (err) {
+      console.warn("[API /api/chat] Failed to load chat history, starting fresh:", err);
+      previousMessages = [];
+    }
+
+    console.log(
+      `[API /api/chat] Loaded ${previousMessages.length} previous messages for chat ${id}`
+    );
     const messages = [...previousMessages, message];
 
     // ──────────────────────────────────────────────────────────────────────
@@ -186,10 +206,23 @@ export async function POST(req: Request) {
     // ──────────────────────────────────────────────────────────────────────
     // Validate that all tool calls in stored messages match current tool schemas.
     // This protects against schema changes breaking stored conversations.
-    const validatedMessages = await validateUIMessages({
-      messages,
-      tools: requestTools,
-    });
+    let validatedMessages: UIMessage[];
+    try {
+      validatedMessages = await validateUIMessages({
+        messages,
+        tools: requestTools,
+      });
+    } catch (err) {
+      // Docs-aligned: if persisted messages don't validate against current schemas,
+      // fall back gracefully rather than breaking the chat.
+      // Ref: https://ai-sdk.dev/docs/ai-sdk-ui/chatbot-message-persistence
+      if (err instanceof TypeValidationError) {
+        console.error("[API /api/chat] validateUIMessages failed; dropping history:", err);
+        validatedMessages = [message];
+      } else {
+        throw err;
+      }
+    }
 
     type AnyPart = UIMessage["parts"][number];
     type FilePart = AnyPart & {
@@ -332,26 +365,25 @@ export async function POST(req: Request) {
 
       // Save chat when stream completes
       onFinish: async ({ messages: finishedMessages }) => {
-        // Use the original validated messages + the new assistant response
-        // This ensures we preserve file attachments from the user message
-        const assistantMessage = finishedMessages[finishedMessages.length - 1];
+        console.log(
+          `[API /api/chat] onFinish called for chat ${id}, saving ${finishedMessages.length} messages`
+        );
 
-        if (assistantMessage && assistantMessage.role === "assistant") {
-          // Ensure assistant message has a unique ID
-          const assistantWithId: UIMessage = {
-            ...assistantMessage,
-            id: assistantMessage.id || generateId(),
-          };
+        // Docs-aligned: persist the messages returned by the stream response.
+        // Ensure all messages have IDs.
+        const messagesWithIds = finishedMessages.map((msg) => ({
+          ...msg,
+          id: msg.id || generateId(),
+        }));
 
-          const messagesToSave = [...validatedMessages, assistantWithId];
-          await saveChat({ id, messages: messagesToSave });
-        } else {
-          // Ensure all messages have IDs
-          const messagesWithIds = finishedMessages.map((msg) => ({
-            ...msg,
-            id: msg.id || generateId(),
-          }));
+        try {
           await saveChat({ id, messages: messagesWithIds });
+          console.log(
+            `[API /api/chat] Chat ${id} saved successfully with ${messagesWithIds.length} messages`
+          );
+        } catch (err) {
+          // Never fail the request because persistence failed.
+          console.error("[API /api/chat] saveChat failed:", err);
         }
       },
     });

@@ -5,6 +5,14 @@ import { useRouter } from "next/navigation";
 import { Trash2Icon, PlusIcon, SearchIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +40,8 @@ export function ChatSidebar(props: {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   async function refresh() {
     setLoading(true);
@@ -48,6 +58,12 @@ export function ChatSidebar(props: {
 
   useEffect(() => {
     refresh();
+  }, []);
+
+  useEffect(() => {
+    const onChanged = () => refresh();
+    window.addEventListener("chats:changed", onChanged);
+    return () => window.removeEventListener("chats:changed", onChanged);
   }, []);
 
   // Refresh when active chat changes (e.g., new chat created)
@@ -100,145 +116,187 @@ export function ChatSidebar(props: {
   }, [filtered]);
 
   const createNewChat = async () => {
-    // Draft mode: don’t create a chat record until the user submits their first message.
+    // Docs-aligned: /chat creates a new chat on the server and redirects to /chat/[id].
     router.push("/chat");
   };
 
   const deleteOne = async (id: string) => {
-    const ok = window.confirm("Delete this chat? This cannot be undone.");
-    if (!ok) return;
     setError(null);
     try {
+      setIsDeleting(true);
       await fetchJson<{ ok: true }>(`/api/chats/${id}`, { method: "DELETE" });
       await refresh();
       if (id === props.activeChatId) {
-        // If we deleted the active chat, return to draft mode.
+        // If we deleted the active chat, go to /chat (which will create+redirect).
         router.push("/chat");
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to delete chat");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   return (
-    <aside
-      className={cn(
-        "flex h-full w-[280px] flex-col border-r bg-muted/10",
-        props.className
-      )}
-    >
-      <div className="flex items-center justify-between p-4 pb-2">
-        <div className="text-sm font-semibold tracking-tight text-foreground/70">
-          Chats
-        </div>
-        <Button
-          onClick={createNewChat}
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-muted-foreground hover:text-foreground"
-          title="New Chat"
-        >
-          <PlusIcon className="size-4" />
-        </Button>
-      </div>
-
-      <div className="px-4 pb-4">
-        <div className="relative">
-          <SearchIcon className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground/70" />
-          <input
-            className="w-full rounded-lg border bg-background pl-8 pr-3 py-2 text-sm outline-none placeholder:text-muted-foreground/70 focus:ring-1 focus:ring-ring transition-all"
-            placeholder="Search..."
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 pb-3 scrollbar-thin scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/40">
-        {error && (
-          <div className="mb-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-            {error}
-          </div>
+    <>
+      <aside
+        className={cn(
+          "flex h-full w-[280px] flex-col border-r bg-muted/10",
+          props.className
         )}
-
-        {loading ? (
-          <div className="flex flex-col gap-2 px-2">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="flex flex-col gap-2 rounded-lg px-2 py-3">
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-3 w-1/2 opacity-50" />
-              </div>
-            ))}
+      >
+        <div className="flex items-center justify-between p-4 pb-2">
+          <div className="text-sm font-semibold tracking-tight text-foreground/70">
+            Chats
           </div>
-        ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="rounded-full bg-muted/50 p-3 mb-3">
-              <SearchIcon className="size-4 text-muted-foreground/50" />
+          <Button
+            onClick={createNewChat}
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            title="New Chat"
+          >
+            <PlusIcon className="size-4" />
+          </Button>
+        </div>
+
+        <div className="px-4 pb-4">
+          <div className="relative">
+            <SearchIcon className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground/70" />
+            <input
+              className="w-full rounded-lg border bg-background pl-8 pr-3 py-2 text-sm outline-none placeholder:text-muted-foreground/70 focus:ring-1 focus:ring-ring transition-all"
+              placeholder="Search..."
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 pb-3 scrollbar-thin scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/40">
+          {error && (
+            <div className="mb-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+              {error}
             </div>
-            <p className="text-xs text-muted-foreground">No chats found</p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-6">
-            {Object.entries(groupedChats).map(([label, group]) => {
-              if (group.length === 0) return null;
-              return (
-                <div key={label} className="flex flex-col gap-1">
-                  <div className="px-3 text-xs font-medium text-muted-foreground/50 uppercase tracking-wider mb-1">
-                    {label}
-                  </div>
-                  {group.map((c) => {
-                    const active = c.id === props.activeChatId;
-                    return (
-                      <div
-                        key={c.id}
-                        className={cn(
-                          "group relative flex items-center gap-2 rounded-lg px-3 py-2.5 transition-colors",
-                          active
-                            ? "bg-primary/10 text-primary"
-                            : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-                        )}
-                      >
-                        <button
-                          className="min-w-0 flex-1 text-left outline-none"
-                          onClick={() => router.push(`/chat/${c.id}`)}
-                          type="button"
-                        >
-                          <div
-                            className={cn(
-                              "truncate text-sm font-medium transition-all duration-200 ease-in-out group-hover:pr-8",
-                              active ? "text-primary" : "text-foreground"
-                            )}
-                          >
-                            {c.title}
-                          </div>
-                        </button>
+          )}
 
-                        <Button
-                          aria-label="Delete chat"
-                          className={cn(
-                            "absolute right-2 h-7 w-7 p-0 opacity-0 transition-all group-hover:opacity-100",
-                            active
-                              ? "text-primary hover:bg-primary/20"
-                              : "text-muted-foreground hover:bg-muted hover:text-destructive"
-                          )}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteOne(c.id);
-                          }}
-                          type="button"
-                          variant="ghost"
-                        >
-                          <Trash2Icon className="size-3.5" />
-                        </Button>
-                      </div>
-                    );
-                  })}
+          {loading ? (
+            <div className="flex flex-col gap-2 px-2">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="flex flex-col gap-2 rounded-lg px-2 py-3">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/2 opacity-50" />
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </aside>
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="rounded-full bg-muted/50 p-3 mb-3">
+                <SearchIcon className="size-4 text-muted-foreground/50" />
+              </div>
+              <p className="text-xs text-muted-foreground">No chats found</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-6">
+              {Object.entries(groupedChats).map(([label, group]) => {
+                if (group.length === 0) return null;
+                return (
+                  <div key={label} className="flex flex-col gap-1">
+                    <div className="px-3 text-xs font-medium text-muted-foreground/50 uppercase tracking-wider mb-1">
+                      {label}
+                    </div>
+                    {group.map((c) => {
+                      const active = c.id === props.activeChatId;
+                      return (
+                        <div
+                          key={c.id}
+                          className={cn(
+                            "group relative flex items-center gap-2 rounded-lg px-3 py-2.5 transition-colors",
+                            active
+                              ? "bg-primary/10 text-primary"
+                              : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                          )}
+                        >
+                          <button
+                            className="min-w-0 flex-1 text-left outline-none"
+                            onClick={() => router.push(`/chat/${c.id}`)}
+                            type="button"
+                          >
+                            <div
+                              className={cn(
+                                "truncate text-sm font-medium transition-all duration-200 ease-in-out group-hover:pr-8",
+                                active ? "text-primary" : "text-foreground"
+                              )}
+                            >
+                              {c.title}
+                            </div>
+                          </button>
+
+                          <Button
+                            aria-label="Delete chat"
+                            className={cn(
+                              "absolute right-2 h-7 w-7 p-0 opacity-0 transition-all group-hover:opacity-100",
+                              active
+                                ? "text-primary hover:bg-primary/20"
+                                : "text-muted-foreground hover:bg-muted hover:text-destructive"
+                            )}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfirmDeleteId(c.id);
+                            }}
+                            type="button"
+                            variant="ghost"
+                          >
+                            <Trash2Icon className="size-3.5" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </aside>
+
+      <Dialog
+        open={Boolean(confirmDeleteId)}
+        onOpenChange={(open) => {
+          if (!open) setConfirmDeleteId(null);
+        }}
+      >
+        <DialogContent showCloseButton={!isDeleting}>
+          <DialogHeader>
+            <DialogTitle>Delete chat?</DialogTitle>
+            <DialogDescription>
+              This cannot be undone. This will permanently delete the chat and its
+              attachments.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isDeleting}
+              onClick={() => setConfirmDeleteId(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={!confirmDeleteId || isDeleting}
+              onClick={async () => {
+                if (!confirmDeleteId) return;
+                await deleteOne(confirmDeleteId);
+                setConfirmDeleteId(null);
+              }}
+            >
+              {isDeleting ? "Deleting…" : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

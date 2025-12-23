@@ -868,10 +868,14 @@ export const PromptInput = ({
         return (formData.get("message") as string) || "";
       })();
 
-    // Reset form immediately after capturing text to avoid race condition
-    // where user input during async blob conversion would be lost
+    // Clear UI immediately for instant feedback
+    // Submit button will be disabled to prevent double-submission
     if (!usingProvider) {
       form.reset();
+    }
+    clear();
+    if (usingProvider) {
+      controller.textInput.clear();
     }
 
     // Convert attachments to data URLs on submit (cookbook pattern).
@@ -913,34 +917,10 @@ export const PromptInput = ({
       })
     )
       .then((convertedFiles: FileUIPart[]) => {
-        try {
-          const result = onSubmit({ text, files: convertedFiles }, event);
-
-          // Handle both sync and async onSubmit
-          if (result instanceof Promise) {
-            result
-              .then(() => {
-                clear();
-                if (usingProvider) {
-                  controller.textInput.clear();
-                }
-              })
-              .catch(() => {
-                // Don't clear on error - user may want to retry
-              });
-          } else {
-            // Sync function completed without throwing, clear attachments
-            clear();
-            if (usingProvider) {
-              controller.textInput.clear();
-            }
-          }
-        } catch {
-          // Don't clear on error - user may want to retry
-        }
+        onSubmit({ text, files: convertedFiles }, event);
       })
       .catch(() => {
-        // Don't clear on error - user may want to retry
+        // File conversion error - already cleared, user sees error and can retry
       });
   };
 
@@ -968,7 +948,7 @@ export const PromptInput = ({
         {...props}
       >
         {isDragging && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background/95 backdrop-blur-md rounded-[inherit] pointer-events-none z-50 transition-all duration-200 border-2 border-primary border-dashed animate-in fade-in-0 zoom-in-95">
+          <div className="absolute left-0 right-0 bottom-0 h-[160px] flex items-center justify-center bg-background/95 backdrop-blur-md rounded-[inherit] pointer-events-none z-50 transition-all duration-200 border-2 border-primary border-dashed origin-bottom animate-in fade-in-0 zoom-in-95">
             <div className="flex flex-col items-center gap-3">
               <div className="rounded-full bg-primary/10 p-4">
                 <svg className="size-10 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1135,7 +1115,7 @@ export const PromptInputFooter = ({
 }: PromptInputFooterProps) => (
   <InputGroupAddon
     align="block-end"
-    className={cn("justify-between gap-1", className)}
+    className={cn("justify-between gap-1 pr-4", className)}
     {...props}
   />
 );
@@ -1226,6 +1206,7 @@ export const PromptInputSubmit = ({
   ...props
 }: PromptInputSubmitProps) => {
   let Icon = <CornerDownLeftIcon className="size-4" />;
+  const isProcessing = status === "submitted" || status === "streaming";
 
   if (status === "submitted") {
     Icon = <Loader2Icon className="size-4 animate-spin" />;
@@ -1239,6 +1220,7 @@ export const PromptInputSubmit = ({
     <InputGroupButton
       aria-label="Submit"
       className={cn(className)}
+      disabled={status === "submitted"}
       size={size}
       type="submit"
       variant={variant}

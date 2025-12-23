@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlinkSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  readdirSync,
+  unlinkSync,
+  rmdirSync,
+} from "node:fs";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 
@@ -298,10 +306,9 @@ export function deleteAttachments(chatId: string): void {
       unlinkSync(join(chatAttachmentsDir, file));
     }
 
-    // Remove the directory (using rmSync would be better but requires Node 14.14+)
+    // Remove the directory
     try {
-      const fs = require("fs");
-      fs.rmdirSync(chatAttachmentsDir);
+      rmdirSync(chatAttachmentsDir);
     } catch {
       // Directory might not be empty or already deleted
     }

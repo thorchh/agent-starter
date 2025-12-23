@@ -3,13 +3,12 @@
 import { useChat } from "@ai-sdk/react";
 import type { UIMessage } from "ai";
 import { DefaultChatTransport } from "ai";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
   Conversation,
   ConversationContent,
-  ConversationEmptyState,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
 import { Loader } from "@/components/ai-elements/loader";
@@ -62,12 +61,8 @@ const SUGGESTIONS = [
   "Write a TypeScript function and format it as markdown.",
 ];
 
-export function ChatClient(props: { id?: string; initialMessages: UIMessage[] }) {
+export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) {
   const router = useRouter();
-
-  const [persistedChatId, setPersistedChatId] = useState<string | null>(
-    props.id ?? null
-  );
 
   const [input, setInput] = useState("");
   const [model, setModel] = useState<string>(MODEL_OPTIONS[0]!.id);
@@ -75,26 +70,15 @@ export function ChatClient(props: { id?: string; initialMessages: UIMessage[] })
   const [debug, setDebug] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function createPersistedChatId(): Promise<string> {
-    const res = await fetch("/api/chats", { method: "POST" });
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(text || `Failed to create chat (${res.status})`);
-    }
-    const data = (await res.json()) as { id: string };
-    return data.id;
-  }
-
   const transport = useMemo(() => {
     return new DefaultChatTransport({
       api: "/api/chat",
       // Docs pattern: send only the last message; server loads + persists history.
-      prepareSendMessagesRequest({ messages, id, body }) {
+      prepareSendMessagesRequest({ messages, id }) {
         return {
           body: {
             message: messages[messages.length - 1],
-            // Allow per-request override (used for lazy chat creation from /chat draft mode).
-            id: (body as { id?: string } | undefined)?.id ?? id,
+            id,
             model,
             useSearch,
           },
@@ -103,12 +87,34 @@ export function ChatClient(props: { id?: string; initialMessages: UIMessage[] })
     });
   }, [model, useSearch]);
 
-  const { messages, sendMessage, status, regenerate, setMessages } = useChat({
-    id: persistedChatId ?? undefined,
+  const { messages, sendMessage, status, regenerate } = useChat({
+    id: props.id,
     messages: props.initialMessages,
     transport,
-    onError: (e) => setError(e.message),
+    onError: (e) => {
+      console.error("[ChatClient] useChat onError:", e.message);
+      setError(e.message);
+    },
   });
+
+  console.log("[ChatClient] useChat initialized with id:", props.id);
+
+  // Log status and message changes
+  useEffect(() => {
+    console.log("[ChatClient] Status:", status, "Messages:", messages.length);
+  }, [status, messages.length]);
+
+  // When a response finishes streaming, the server has persisted the chat.
+  // Tell the sidebar to refresh its list so the chat appears/highlights without reload.
+  const lastNotifiedMessageCountRef = useRef<number>(props.initialMessages.length);
+  useEffect(() => {
+    if (status !== "ready") return;
+    if (messages.length <= 0) return;
+    if (messages.length === lastNotifiedMessageCountRef.current) return;
+
+    lastNotifiedMessageCountRef.current = messages.length;
+    window.dispatchEvent(new Event("chats:changed"));
+  }, [status, messages.length]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -116,14 +122,13 @@ export function ChatClient(props: { id?: string; initialMessages: UIMessage[] })
       // Cmd+K or Ctrl+K: New chat
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        setMessages([]);
         router.push("/chat");
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [router, setMessages]);
+  }, [router]);
 
   const canNewChat = status === "ready";
 
@@ -157,6 +162,13 @@ export function ChatClient(props: { id?: string; initialMessages: UIMessage[] })
   }, [messages]);
 
   const handleSubmit = async (message: PromptInputMessage) => {
+    console.log("[ChatClient] handleSubmit called", {
+      text: message.text?.substring(0, 50),
+      hasAttachments: Boolean(message.files?.length),
+      chatId: props.id,
+      messagesCount: messages.length
+    });
+
     const hasText = Boolean(message.text?.trim());
     const hasAttachments = Boolean(message.files?.length);
     if (!(hasText || hasAttachments)) return;
@@ -169,32 +181,24 @@ export function ChatClient(props: { id?: string; initialMessages: UIMessage[] })
       files: message.files,
     } as const;
 
-    // Draft mode: create chat only when the user actually submits something.
-    if (!persistedChatId) {
-      try {
-        const newId = await createPersistedChatId();
-        setPersistedChatId(newId);
-
-        // Ensure this request uses the new persisted chat id.
-        await sendMessage(outgoing, { body: { id: newId } });
-
-        // Update the URL without navigating (keeps files/stream stable).
-        // If the user refreshes, they'll land on /chat/[id] and reload from disk.
-        window.history.replaceState(null, "", `/chat/${newId}`);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to create chat");
-      }
-    } else {
-      await sendMessage(outgoing, { body: { id: persistedChatId } });
-    }
-
+    // Clear input immediately to provide instant visual feedback
     setInput("");
+    console.log("[ChatClient] Input cleared, calling sendMessage with chatId:", props.id);
+
+    try {
+      await sendMessage(outgoing);
+      console.log("[ChatClient] sendMessage completed successfully");
+    } catch (e) {
+      console.error("[ChatClient] sendMessage failed:", e);
+      // Error is handled by onError callback in useChat, which sets error state
+      setError(e instanceof Error ? e.message : "Failed to send message");
+    }
   };
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background font-sans selection:bg-primary/10 selection:text-primary">
       <ChatSidebar
-        activeChatId={persistedChatId ?? ""}
+        activeChatId={props.id}
         className="hidden md:flex h-full"
       />
       <div className="flex h-full w-full flex-1 flex-col overflow-hidden">
@@ -212,7 +216,7 @@ export function ChatClient(props: { id?: string; initialMessages: UIMessage[] })
               </SheetTrigger>
               <SheetContent side="left" className="p-0 w-[280px]">
                 <ChatSidebar
-                  activeChatId={persistedChatId ?? ""}
+                  activeChatId={props.id}
                   className="w-full border-none"
                 />
               </SheetContent>
@@ -271,7 +275,7 @@ export function ChatClient(props: { id?: string; initialMessages: UIMessage[] })
                         message.role === "assistant"
                           ? () =>
                             regenerate({
-                              body: { id: persistedChatId ?? undefined },
+                              body: { id: props.id },
                             })
                           : undefined
                       }
@@ -301,6 +305,7 @@ export function ChatClient(props: { id?: string; initialMessages: UIMessage[] })
         <div className="z-10 w-full bg-gradient-to-t from-background via-background to-transparent px-4 pb-6 pt-2">
           <div className="mx-auto w-full max-w-3xl">
             <PromptInput
+              key={props.id}
               className="w-full rounded-3xl border border-border bg-card shadow-xl shadow-black/5 transition-all duration-300"
                       accept="image/*,text/*,application/pdf"
               globalDrop

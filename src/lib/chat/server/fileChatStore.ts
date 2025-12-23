@@ -223,9 +223,15 @@ function titleFromMessages(messages: UIMessage[], id: string): string {
         const t = p.text.trim().replace(/\s+/g, " ");
         if (t.length) return t.length > 60 ? `${t.slice(0, 60)}…` : t;
       }
+      if (p.type === "file") {
+        const name = (p.filename ?? "").trim();
+        if (name) return `Attachment: ${name}`;
+        return "Attachment";
+      }
     }
   }
-  return `Chat ${id.slice(0, 6)}`;
+  // Avoid showing IDs in the UI; keep this friendly.
+  return "New chat";
 }
 
 export async function listChats(): Promise<ChatSummary[]> {
@@ -252,6 +258,10 @@ export async function listChats(): Promise<ChatSummary[]> {
         messages = [];
       }
 
+      // Don't surface empty chats in the UI. These are created when visiting /chat,
+      // but we only want them to appear after the user has actually sent something.
+      if (messages.length === 0) return null;
+
       const updatedAt = fileStat
         ? fileStat.mtime.toISOString()
         : new Date(0).toISOString();
@@ -264,7 +274,9 @@ export async function listChats(): Promise<ChatSummary[]> {
     })
   );
 
-  return summaries.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  return (summaries.filter(Boolean) as ChatSummary[]).sort((a, b) =>
+    b.updatedAt.localeCompare(a.updatedAt)
+  );
 }
 
 /**
