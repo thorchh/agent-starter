@@ -46,7 +46,9 @@ import {
   CloudSunIcon,
   ClockIcon,
   CopyIcon,
+  FileIcon,
   FileTextIcon,
+  ImageIcon,
   RefreshCcwIcon,
   SearchIcon,
   WrenchIcon,
@@ -326,7 +328,7 @@ export function MessageParts({
           }
 
           case "file": {
-            // Render file parts as attachments. This keeps them “in-stream” so they
+            // Render file parts as attachments. This keeps them "in-stream" so they
             // appear exactly where the SDK emitted them.
             const isOmitted =
               typeof part.url === "string" &&
@@ -335,18 +337,21 @@ export function MessageParts({
 
             return (
               <Message key={`${message.id}-file-${i}`} from={message.role}>
-                <MessageAttachments>
+                <MessageAttachments className="mt-3">
                   {isOmitted ? (
-                    <div className="rounded-xl border bg-muted/30 px-3 py-2">
-                      <div className="text-sm font-medium">
-                        {part.filename || "Attachment"}
+                    <div className="space-y-2 rounded-lg border bg-muted/20 px-3 py-2">
+                      <div className="flex items-center gap-2 text-sm">
+                        {part.mediaType?.startsWith("image/") ? (
+                          <ImageIcon className="size-4 shrink-0" />
+                        ) : part.mediaType?.includes("pdf") ? (
+                          <FileTextIcon className="size-4 shrink-0" />
+                        ) : (
+                          <FileIcon className="size-4 shrink-0" />
+                        )}
+                        <span className="truncate">{part.filename || "Attachment"}</span>
                       </div>
                       <div className="text-muted-foreground text-xs">
-                        {part.mediaType}
-                      </div>
-                      <div className="text-muted-foreground mt-1 text-[11px]">
-                        Attachment content isn’t persisted. Re-upload if you need to
-                        reference it after refresh.
+                        Content not persisted. Re-upload to reference after refresh.
                       </div>
                     </div>
                   ) : (

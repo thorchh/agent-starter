@@ -395,20 +395,86 @@ export function PromptInputAttachments({
   ...props
 }: PromptInputAttachmentsProps) {
   const attachments = usePromptInputAttachments();
+  const [showAll, setShowAll] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [popupPosition, setPopupPosition] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    if (showAll && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setPopupPosition({
+        top: rect.top - 8, // 8px gap above button
+        left: rect.left,
+      });
+    }
+  }, [showAll]);
 
   if (!attachments.files.length) {
     return null;
   }
 
+  const MAX_VISIBLE = 3;
+  const hasMore = attachments.files.length > MAX_VISIBLE;
+  const visibleFiles = attachments.files.slice(0, MAX_VISIBLE);
+  const remainingCount = Math.max(0, attachments.files.length - MAX_VISIBLE);
+
   return (
-    <div
-      className={cn("flex flex-wrap items-center gap-2 p-3 w-full", className)}
-      {...props}
-    >
-      {attachments.files.map((file) => (
-        <Fragment key={file.id}>{children(file)}</Fragment>
-      ))}
-    </div>
+    <>
+      <div
+        className={cn("flex flex-wrap items-center gap-2 p-3 w-full", className)}
+        {...props}
+      >
+        {visibleFiles.map((file) => (
+          <Fragment key={file.id}>{children(file)}</Fragment>
+        ))}
+        {hasMore && (
+          <button
+            ref={buttonRef}
+            type="button"
+            onClick={() => setShowAll(!showAll)}
+            className="flex h-9 items-center justify-center rounded-xl border bg-muted/30 px-3 text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+          >
+            +{remainingCount} more
+          </button>
+        )}
+      </div>
+      {showAll && hasMore && (
+        <>
+          <div
+            className="fixed inset-0 z-50"
+            onClick={() => setShowAll(false)}
+          />
+          <div
+            className="fixed z-50 min-w-[280px] max-w-md rounded-xl border bg-popover p-3 shadow-xl animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2"
+            style={{
+              top: `${popupPosition.top}px`,
+              left: `${popupPosition.left}px`,
+              transform: 'translateY(-100%)',
+            }}
+          >
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-sm font-semibold">
+                All attachments ({attachments.files.length})
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowAll(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto">
+              {attachments.files.map((file) => (
+                <Fragment key={file.id}>{children(file)}</Fragment>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </>
   );
 }
 
@@ -489,6 +555,10 @@ export const PromptInput = ({
   // ----- Local attachments (only used when no provider)
   const [items, setItems] = useState<AttachmentItem[]>([]);
   const files = usingProvider ? controller.attachments.files : items;
+
+  // ----- Drag and drop visual feedback
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounter = useRef(0); // Track nested drag events
 
   // Keep a ref to files for cleanup on unmount (avoids stale closure)
   const filesRef = useRef(files);
@@ -624,48 +694,106 @@ export const PromptInput = ({
     if (!form) return;
     if (globalDrop) return // when global drop is on, let the document-level handler own drops
 
+    const onDragEnter = (e: DragEvent) => {
+      if (e.dataTransfer?.types?.includes("Files")) {
+        e.preventDefault();
+        dragCounter.current++;
+        if (dragCounter.current === 1) {
+          setIsDragging(true);
+        }
+      }
+    };
+
     const onDragOver = (e: DragEvent) => {
       if (e.dataTransfer?.types?.includes("Files")) {
         e.preventDefault();
       }
     };
+
+    const onDragLeave = (e: DragEvent) => {
+      if (e.dataTransfer?.types?.includes("Files")) {
+        dragCounter.current--;
+        if (dragCounter.current === 0) {
+          setIsDragging(false);
+        }
+      }
+    };
+
     const onDrop = (e: DragEvent) => {
       if (e.dataTransfer?.types?.includes("Files")) {
         e.preventDefault();
       }
+      dragCounter.current = 0;
+      setIsDragging(false);
       if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
         add(e.dataTransfer.files);
       }
     };
+
+    form.addEventListener("dragenter", onDragEnter);
     form.addEventListener("dragover", onDragOver);
+    form.addEventListener("dragleave", onDragLeave);
     form.addEventListener("drop", onDrop);
     return () => {
+      form.removeEventListener("dragenter", onDragEnter);
       form.removeEventListener("dragover", onDragOver);
+      form.removeEventListener("dragleave", onDragLeave);
       form.removeEventListener("drop", onDrop);
+      dragCounter.current = 0;
+      setIsDragging(false);
     };
   }, [add, globalDrop]);
 
   useEffect(() => {
     if (!globalDrop) return;
 
+    const onDragEnter = (e: DragEvent) => {
+      if (e.dataTransfer?.types?.includes("Files")) {
+        e.preventDefault();
+        dragCounter.current++;
+        if (dragCounter.current === 1) {
+          setIsDragging(true);
+        }
+      }
+    };
+
     const onDragOver = (e: DragEvent) => {
       if (e.dataTransfer?.types?.includes("Files")) {
         e.preventDefault();
       }
     };
+
+    const onDragLeave = (e: DragEvent) => {
+      if (e.dataTransfer?.types?.includes("Files")) {
+        dragCounter.current--;
+        if (dragCounter.current === 0) {
+          setIsDragging(false);
+        }
+      }
+    };
+
     const onDrop = (e: DragEvent) => {
       if (e.dataTransfer?.types?.includes("Files")) {
         e.preventDefault();
       }
+      dragCounter.current = 0;
+      setIsDragging(false);
       if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
         add(e.dataTransfer.files);
       }
     };
+
+    document.addEventListener("dragenter", onDragEnter);
     document.addEventListener("dragover", onDragOver);
+    document.addEventListener("dragleave", onDragLeave);
     document.addEventListener("drop", onDrop);
     return () => {
+      document.removeEventListener("dragenter", onDragEnter);
       document.removeEventListener("dragover", onDragOver);
+      document.removeEventListener("dragleave", onDragLeave);
       document.removeEventListener("drop", onDrop);
+      dragCounter.current = 0;
+      setIsDragging(false);
     };
   }, [add, globalDrop]);
 
@@ -830,11 +958,27 @@ export const PromptInput = ({
         type="file"
       />
       <form
-        className={cn("w-full", className)}
+        className={cn(
+          "w-full relative transition-all duration-200",
+          isDragging && "scale-[1.02]",
+          className
+        )}
         onSubmit={handleSubmit}
         ref={formRef}
         {...props}
       >
+        {isDragging && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/95 backdrop-blur-md rounded-[inherit] pointer-events-none z-50 transition-all duration-200 border-2 border-primary border-dashed animate-in fade-in-0 zoom-in-95">
+            <div className="flex flex-col items-center gap-3">
+              <div className="rounded-full bg-primary/10 p-4">
+                <svg className="size-10 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+              </div>
+              <span className="text-base font-semibold text-primary">Drop files here</span>
+            </div>
+          </div>
+        )}
         <InputGroup className="overflow-hidden border-none shadow-none bg-transparent has-[[data-slot=input-group-control]:focus-visible]:ring-0 has-[[data-slot=input-group-control]:focus-visible]:border-none">
           {children}
         </InputGroup>

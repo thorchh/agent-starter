@@ -28,6 +28,7 @@
 
 import {
   convertToModelMessages,
+  generateId,
   stepCountIs,
   streamText,
   validateUIMessages,
@@ -330,8 +331,28 @@ export async function POST(req: Request) {
       originalMessages: validatedMessages,
 
       // Save chat when stream completes
-      onFinish: async ({ messages }) => {
-        await saveChat({ id, messages });
+      onFinish: async ({ messages: finishedMessages }) => {
+        // Use the original validated messages + the new assistant response
+        // This ensures we preserve file attachments from the user message
+        const assistantMessage = finishedMessages[finishedMessages.length - 1];
+
+        if (assistantMessage && assistantMessage.role === "assistant") {
+          // Ensure assistant message has a unique ID
+          const assistantWithId: UIMessage = {
+            ...assistantMessage,
+            id: assistantMessage.id || generateId(),
+          };
+
+          const messagesToSave = [...validatedMessages, assistantWithId];
+          await saveChat({ id, messages: messagesToSave });
+        } else {
+          // Ensure all messages have IDs
+          const messagesWithIds = finishedMessages.map((msg) => ({
+            ...msg,
+            id: msg.id || generateId(),
+          }));
+          await saveChat({ id, messages: messagesWithIds });
+        }
       },
     });
   } catch (err) {

@@ -6,16 +6,37 @@ import { readdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { OMITTED_ATTACHMENT_URL } from "@/lib/chat/constants";
+import {
+  deleteAttachments,
+  isStoredAttachmentUrl,
+  loadAttachment,
+  pathToStoredUrl,
+  saveAttachment,
+  storedUrlToPath,
+} from "./attachmentStore";
 
 /**
- * File-based chat store (docs-aligned).
+ * File-based chat store with integrated attachment persistence.
  *
- * This mirrors the AI SDK "Chatbot Message Persistence" guide:
- * - chats are stored in `.chats/{id}.json`
- * - messages are stored as UIMessage[] JSON
+ * OVERVIEW:
+ * This implements the AI SDK "Chatbot Message Persistence" pattern with
+ * added support for file attachments:
+ * - Chat messages stored in `.chats/{id}.json` (lightweight JSON)
+ * - File attachments stored in `.chats/attachments/{id}/` (binary files)
+ * - Uses stored:// references in JSON to link to files
  *
- * Caveat: the filesystem is ephemeral on most serverless platforms (including Vercel).
- * This is intended for local dev + as a reference implementation. Swap it for a DB later.
+ * DATA FLOW:
+ * 1. SAVE: Extract file data from data URLs → save to disk → store references
+ * 2. LOAD: Read chat JSON → detect stored:// references → load files → convert to data URLs
+ * 3. DELETE: Remove chat JSON + associated attachment files
+ *
+ * ⚠️ IMPORTANT - NOT PRODUCTION READY:
+ * The filesystem is ephemeral on serverless platforms (Vercel, Netlify, AWS Lambda).
+ * This works great for local dev but MUST be upgraded to:
+ * - Database (PostgreSQL, MongoDB, etc.) for chat messages
+ * - Blob storage (S3, R2, Vercel Blob) for file attachments
+ *
+ * See ATTACHMENT_STORAGE.md for detailed upgrade instructions.
  */
 
 const CHAT_DIR = path.join(process.cwd(), ".chats");
@@ -47,14 +68,56 @@ function safeJsonStringify(value: unknown) {
   }
 }
 
-function sanitizeMessagesForPersistence(messages: UIMessage[]): UIMessage[] {
+/**
+ * Sanitize messages for persistence by extracting and storing file attachments.
+ *
+ * CURRENT IMPLEMENTATION:
+ * - Detects file parts with data URLs
+ * - Saves file data to .chats/attachments/{chatId}/
+ * - Replaces data URL with stored:// reference
+ * - Keeps already-stored files unchanged
+ * - Keeps omitted files as omitted
+ *
+ * UPGRADE PATH TO BLOB STORAGE:
+ * The logic stays mostly the same, just update the saveAttachment() call
+ * to upload to S3 instead of local disk. The stored:// references work
+ * the same way - they just point to S3 keys instead of local paths.
+ */
+function sanitizeMessagesForPersistence(chatId: string, messages: UIMessage[]): UIMessage[] {
   return messages.map((m) => {
     const parts = m.parts.map((p) => {
-      // Metadata-only attachments. (Blob storage can be added later and replace this URL.)
+      // Save file attachments to disk and replace URL with stored:// reference
       if (p.type === "file") {
+        // If already stored, keep the reference
+        if (typeof p.url === "string" && isStoredAttachmentUrl(p.url)) {
+          return p;
+        }
+
+        // If omitted, keep it omitted
+        if (
+          typeof p.url === "string" &&
+          (p.url.startsWith("local-storage://omitted") || p.url === OMITTED_ATTACHMENT_URL)
+        ) {
+          return {
+            ...p,
+            url: OMITTED_ATTACHMENT_URL,
+          };
+        }
+
+        // Save new attachment to disk
+        if (typeof p.url === "string" && p.url.startsWith("data:")) {
+          const stored = saveAttachment(chatId, p.url, p.filename, p.mediaType);
+          if (stored) {
+            return {
+              ...p,
+              url: pathToStoredUrl(stored.path),
+            };
+          }
+        }
+
+        // Fallback: omit if we couldn't save it
         return {
           ...p,
-          // Always omit the actual URL/bytes from persisted storage:
           url: OMITTED_ATTACHMENT_URL,
         };
       }
@@ -89,9 +152,58 @@ export async function createChat(): Promise<string> {
   return id;
 }
 
+/**
+ * Load a chat from disk and restore file attachments.
+ *
+ * CURRENT IMPLEMENTATION:
+ * - Reads chat JSON from .chats/{id}.json
+ * - Detects stored:// references in file parts
+ * - Loads file data from .chats/attachments/{id}/
+ * - Converts back to data URLs for client
+ * - Marks files as omitted if they're missing from disk
+ *
+ * UPGRADE PATH TO BLOB STORAGE:
+ * Replace loadAttachment() calls with S3 signed URLs:
+ * ```typescript
+ * const signedUrl = await getSignedUrl(s3Client, new GetObjectCommand({
+ *   Bucket: process.env.S3_BUCKET,
+ *   Key: relativePath,
+ *   Expires: 3600,
+ * }));
+ * return { ...p, url: signedUrl };
+ * ```
+ * This is MUCH more efficient than converting to data URLs!
+ */
 export async function loadChat(id: string): Promise<UIMessage[]> {
   try {
-    return JSON.parse(await readFile(getChatFile(id), "utf8")) as UIMessage[];
+    const messages = JSON.parse(await readFile(getChatFile(id), "utf8")) as UIMessage[];
+
+    // Restore attachments from disk
+    return messages.map((m) => {
+      const parts = m.parts.map((p) => {
+        if (p.type === "file" && typeof p.url === "string" && isStoredAttachmentUrl(p.url)) {
+          const relativePath = storedUrlToPath(p.url);
+          const dataUrl = loadAttachment(relativePath);
+
+          if (dataUrl) {
+            return {
+              ...p,
+              url: dataUrl,
+            };
+          }
+
+          // If file doesn't exist on disk anymore, mark as omitted
+          return {
+            ...p,
+            url: OMITTED_ATTACHMENT_URL,
+          };
+        }
+
+        return p;
+      });
+
+      return { ...m, parts };
+    });
   } catch {
     // If it doesn't exist / can't be parsed, start fresh.
     return [];
@@ -99,7 +211,7 @@ export async function loadChat(id: string): Promise<UIMessage[]> {
 }
 
 export async function saveChat(opts: { id: string; messages: UIMessage[] }) {
-  const sanitized = sanitizeMessagesForPersistence(opts.messages);
+  const sanitized = sanitizeMessagesForPersistence(opts.id, opts.messages);
   await writeFile(getChatFile(opts.id), JSON.stringify(sanitized, null, 2), "utf8");
 }
 
@@ -155,8 +267,23 @@ export async function listChats(): Promise<ChatSummary[]> {
   return summaries.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
+/**
+ * Delete a chat and all associated attachments.
+ *
+ * CURRENT IMPLEMENTATION:
+ * - Deletes .chats/{id}.json
+ * - Deletes .chats/attachments/{id}/ directory and all files
+ *
+ * UPGRADE PATH TO BLOB STORAGE:
+ * The deleteAttachments() call will be updated to delete from S3.
+ * The chat JSON deletion might move to a database DELETE query.
+ */
 export async function deleteChat(id: string): Promise<void> {
+  // Delete chat file
   await unlink(getChatFile(id));
+
+  // Delete associated attachments
+  deleteAttachments(id);
 }
 
 

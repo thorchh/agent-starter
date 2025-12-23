@@ -50,6 +50,13 @@ export function ChatSidebar(props: {
     refresh();
   }, []);
 
+  // Refresh when active chat changes (e.g., new chat created)
+  useEffect(() => {
+    if (props.activeChatId) {
+      refresh();
+    }
+  }, [props.activeChatId]);
+
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
     if (!q) return chats;
