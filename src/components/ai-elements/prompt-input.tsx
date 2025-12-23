@@ -84,6 +84,14 @@ export type AttachmentsContext = {
   fileInputRef: RefObject<HTMLInputElement | null>;
 };
 
+type AttachmentItem = (FileUIPart & { id: string }) & {
+  /**
+   * The original File. We keep this so we can convert directly to a data URL
+   * on submit (cookbook pattern for PDFs + file prompts).
+   */
+  __file?: File;
+};
+
 export type TextInputContext = {
   value: string;
   setInput: (v: string) => void;
@@ -152,7 +160,7 @@ export function PromptInputProvider({
 
   // ----- attachments state (global when wrapped)
   const [attachmentFiles, setAttachmentFiles] = useState<
-    (FileUIPart & { id: string })[]
+    AttachmentItem[]
   >([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const openRef = useRef<() => void>(() => { });
@@ -171,6 +179,7 @@ export function PromptInputProvider({
           url: URL.createObjectURL(file),
           mediaType: file.type,
           filename: file.name,
+          __file: file,
         }))
       )
     );
@@ -218,7 +227,7 @@ export function PromptInputProvider({
 
   const attachments = useMemo<AttachmentsContext>(
     () => ({
-      files: attachmentFiles,
+      files: attachmentFiles.map(({ __file: _file, ...rest }) => rest),
       add,
       remove,
       clear,
@@ -478,7 +487,7 @@ export const PromptInput = ({
   const formRef = useRef<HTMLFormElement | null>(null);
 
   // ----- Local attachments (only used when no provider)
-  const [items, setItems] = useState<(FileUIPart & { id: string })[]>([]);
+  const [items, setItems] = useState<AttachmentItem[]>([]);
   const files = usingProvider ? controller.attachments.files : items;
 
   // Keep a ref to files for cleanup on unmount (avoids stale closure)
@@ -546,7 +555,7 @@ export const PromptInput = ({
             message: "Too many files. Some were not added.",
           });
         }
-        const next: (FileUIPart & { id: string })[] = [];
+        const next: AttachmentItem[] = [];
         for (const file of capped) {
           next.push({
             id: nanoid(),
@@ -554,6 +563,7 @@ export const PromptInput = ({
             url: URL.createObjectURL(file),
             mediaType: file.type,
             filename: file.name,
+            __file: file,
           });
         }
         return prev.concat(next);
@@ -696,16 +706,27 @@ export const PromptInput = ({
     }
   };
 
+  const convertFileToDataUrl = async (file: File): Promise<string | null> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
+  };
+
   const ctx = useMemo<AttachmentsContext>(
     () => ({
-      files: files.map((item) => ({ ...item, id: item.id })),
+      // Only used in the *local* (non-provider) mode. Use `items` (which contains `__file`)
+      // to avoid TS unions with the provider-exposed `files` list.
+      files: items.map(({ __file: _file, ...item }) => ({ ...item, id: item.id })),
       add,
       remove,
       clear,
       openFileDialog,
       fileInputRef: inputRef,
     }),
-    [files, add, remove, clear, openFileDialog]
+    [items, add, remove, clear, openFileDialog]
   );
 
   const handleSubmit: FormEventHandler<HTMLFormElement> = (event) => {
@@ -725,37 +746,41 @@ export const PromptInput = ({
       form.reset();
     }
 
-    // Convert blob URLs to data URLs asynchronously.
-    // Aligns with AI SDK attachments doc:
-    // - only image/* and text/* are auto-converted into multi-modal content parts
-    // - other content types should be handled manually (blob storage, parsing, etc.)
+    // Convert attachments to data URLs on submit (cookbook pattern).
+    // This is the most deterministic approach for PDFs and file prompts:
+    // - https://ai-sdk.dev/cookbook/next/chat-with-pdf
+    // - https://ai-sdk.dev/cookbook/next/generate-object-with-file-prompt
     Promise.all(
-      files.map(async ({ id, ...item }) => {
-        // We support PDF conversion too (cookbook pattern: convert to data URL),
-        // since some models (OpenAI/Gemini/Anthropic) can accept PDFs.
-        const isAutoConvertible =
+      (usingProvider ? controller.attachments.files : items).map(async (raw) => {
+        const maybeItem = raw as AttachmentItem | (FileUIPart & { id: string });
+        const __file =
+          "__file" in maybeItem && maybeItem.__file instanceof File
+            ? maybeItem.__file
+            : undefined;
+        const { id: _id, ...item } = maybeItem as FileUIPart & { id: string };
+
+        const isConvertible =
           Boolean(item.mediaType?.startsWith("image/")) ||
           Boolean(item.mediaType?.startsWith("text/")) ||
           item.mediaType === "application/pdf";
 
-        // For non-supported types (pdf, docx, etc.), don’t send raw bytes inline.
-        // We still send the metadata (filename/mediaType) so the server/UI can render
-        // an attachment stub and provide a future hook for blob storage.
-        if (!isAutoConvertible) {
-          return {
-            ...item,
-            url: OMITTED_ATTACHMENT_URL,
-          };
+        // Keep unknown types metadata-only until we add real blob storage.
+        if (!isConvertible) {
+          return { ...item, url: OMITTED_ATTACHMENT_URL };
         }
 
+        // Preferred: convert the actual File directly.
+        if (__file) {
+          const dataUrl = await convertFileToDataUrl(__file);
+          return { ...item, url: dataUrl ?? OMITTED_ATTACHMENT_URL };
+        }
+
+        // Fallback: if we don't have the File (should be rare), attempt blob URL fetch.
         if (item.url && item.url.startsWith("blob:")) {
           const dataUrl = await convertBlobUrlToDataUrl(item.url);
-          // If conversion failed, keep the original blob URL
-          return {
-            ...item,
-            url: dataUrl ?? item.url,
-          };
+          return { ...item, url: dataUrl ?? OMITTED_ATTACHMENT_URL };
         }
+
         return item;
       })
     )

@@ -278,7 +278,7 @@ export async function POST(req: Request) {
       system,
 
       // Convert UI messages to model format
-      messages: convertToModelMessages(modelReadyMessages),
+      messages: await convertToModelMessages(modelReadyMessages),
 
       // Available tools
       tools: requestTools,

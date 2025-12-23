@@ -143,11 +143,11 @@ export function ChatClient(props: { id?: string; initialMessages: UIMessage[] })
       .join("").length / 4;
 
     const usedTokens = Math.ceil(inputTokens + outputTokens);
-    const maxTokens = 128_000;
+    const maxOutputTokens = 128_000;
 
     return {
       usedTokens,
-      maxTokens,
+      maxOutputTokens,
       usage: {
         inputTokens: Math.ceil(inputTokens),
         outputTokens: Math.ceil(outputTokens),
@@ -197,7 +197,6 @@ export function ChatClient(props: { id?: string; initialMessages: UIMessage[] })
         activeChatId={persistedChatId ?? ""}
         className="hidden md:flex h-full"
       />
-
       <div className="flex h-full w-full flex-1 flex-col overflow-hidden">
         {/* Pinned header (app-like) */}
         <div className="sticky top-0 z-20 w-full border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
@@ -221,7 +220,7 @@ export function ChatClient(props: { id?: string; initialMessages: UIMessage[] })
             <ChatHeader
               canNewChat={canNewChat}
               className="px-0 py-0 flex-1"
-              subtitle="AI Elements UI • AI SDK streaming • doc-aligned persistence"
+              subtitle="AI Elements UI • AI SDK streaming • Chat persistence"
               title="Agent Starter"
             />
           </div>
@@ -377,7 +376,7 @@ export function ChatClient(props: { id?: string; initialMessages: UIMessage[] })
 
                 <div className="flex items-center gap-2">
                   <Context
-                    maxTokens={contextEstimate.maxTokens}
+                    maxOutputTokens={contextEstimate.maxOutputTokens}
                     usedTokens={contextEstimate.usedTokens}
                     usage={contextEstimate.usage}
                     modelId={model}

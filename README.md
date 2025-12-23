@@ -6,7 +6,7 @@ Polished starter template for building **agentic workflows** with:
 - Tailwind + shadcn/ui + **AI Elements**
 - **Vercel AI SDK** streaming chat + multi-step tool calling
 - Multi-provider support (OpenAI, Groq, AI Gateway)
-- Doc-aligned chat persistence (AI SDK UI) using a file-based store in local dev
+- Chat persistence (AI SDK UI) using a file-based store in local dev
 
 Docs references:
 

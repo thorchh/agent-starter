@@ -248,7 +248,13 @@ export function MessageParts({
         if (seen.has(part.url)) continue;
         seen.add(part.url);
       } else {
-        const key = `${part.mediaType}:${part.title}`;
+        // AI SDK v6 `source-document` shape does not guarantee `file`.
+        // Prefer mediaType if present; fall back to title-only key.
+        const mediaType =
+          "mediaType" in part && typeof part.mediaType === "string"
+            ? part.mediaType
+            : "unknown";
+        const key = `${mediaType}:${part.title}`;
         if (seen.has(key)) continue;
         seen.add(key);
       }
@@ -268,17 +274,16 @@ export function MessageParts({
                 <Source href={part.url} title={part.title ?? part.url} />
               ) : (
                 // `source-document` does not have an href; we display the title.
-                <Source
+                (<Source
                   href="#"
                   title={part.title}
                   onClick={(e) => e.preventDefault()}
-                />
+                />)
               )}
             </SourcesContent>
           ))}
         </Sources>
       )}
-
       {message.parts.map((part: Part, i) => {
         switch (part.type) {
           case "text": {
@@ -294,10 +299,9 @@ export function MessageParts({
                     />
                   ) : (
                     // Default markdown renderer (AI Elements Streamdown wrapper).
-                    <MessageResponse>{part.text}</MessageResponse>
+                    (<MessageResponse>{part.text}</MessageResponse>)
                   )}
                 </MessageContent>
-
                 {isActionPart && (
                   <MessageActions>
                     {onRetry && (
