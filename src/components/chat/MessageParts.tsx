@@ -66,6 +66,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { formatMessageTimestamp, hasTimestamp, hasModel } from "@/lib/chat/message-types";
 
 export type MessagePartsProps = ComponentProps<"div"> & {
   message: UIMessage;
@@ -523,6 +524,7 @@ export function MessageParts({
         switch (part.type) {
           case "text": {
             const isActionPart = showActions && i === lastTextPartIndex;
+            const showMetadata = isActionPart && (hasTimestamp(message) || (message.role === "assistant" && hasModel(message)));
 
             return (
               <Message key={`${message.id}-text-${i}`} from={message.role}>
@@ -537,6 +539,24 @@ export function MessageParts({
                     (<MessageResponse>{part.text}</MessageResponse>)
                   )}
                 </MessageContent>
+                {showMetadata && (
+                  <div className="mt-2 flex items-center gap-2 text-muted-foreground text-xs">
+                    {hasTimestamp(message) && (
+                      <span className="flex items-center gap-1">
+                        <ClockIcon className="size-3" />
+                        {formatMessageTimestamp(message.timestamp)}
+                      </span>
+                    )}
+                    {message.role === "assistant" && hasModel(message) && (
+                      <>
+                        {hasTimestamp(message) && <span>•</span>}
+                        <span className="truncate" title={message.model}>
+                          {message.model.split("/").pop() || message.model}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                )}
                 {isActionPart && (
                   <MessageActions>
                     {onRetry && (

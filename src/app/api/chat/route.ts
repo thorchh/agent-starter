@@ -135,7 +135,14 @@ export async function POST(req: Request) {
     console.log(
       `[API /api/chat] Loaded ${previousMessages.length} previous messages for chat ${id}`
     );
-    const messages = [...previousMessages, message];
+
+    // Add timestamp to user message if not present
+    const messageWithTimestamp: UIMessage = {
+      ...message,
+      timestamp: (message as UIMessage & { timestamp?: number }).timestamp || Date.now(),
+    };
+
+    const messages = [...previousMessages, messageWithTimestamp];
 
     // ──────────────────────────────────────────────────────────────────────
     // 3. CONFIGURE MODEL AND FEATURES
@@ -373,11 +380,24 @@ export async function POST(req: Request) {
         );
 
         // Docs-aligned: persist the messages returned by the stream response.
-        // Ensure all messages have IDs.
-        let messagesWithIds = finishedMessages.map((msg) => ({
-          ...msg,
-          id: msg.id || generateId(),
-        }));
+        // Ensure all messages have IDs, timestamps, and model info.
+        let messagesWithIds = finishedMessages.map((msg) => {
+          const base = {
+            ...msg,
+            id: msg.id || generateId(),
+            timestamp: (msg as typeof msg & { timestamp?: number }).timestamp || Date.now(),
+          };
+
+          // Add model information to assistant messages
+          if (msg.role === "assistant") {
+            return {
+              ...base,
+              model: requestedModel,
+            };
+          }
+
+          return base;
+        });
 
         // Nano Banana Pro (Gemini image model) returns images in `result.files` as Uint8Array
         // (see Vercel docs). For persistence we normalize any image bytes into data URLs so

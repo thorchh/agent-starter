@@ -332,8 +332,8 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
                 />
               </PromptInputBody>
 
-              <PromptInputFooter>
-                <PromptInputTools>
+              <PromptInputFooter className="pr-3">
+                <PromptInputTools className="min-w-0 flex-1 overflow-hidden">
                   <PromptInputActionMenu>
                     <PromptInputActionMenuTrigger className="text-muted-foreground hover:text-foreground transition-colors" />
                     <PromptInputActionMenuContent>
@@ -368,7 +368,7 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
                     )}
                   >
                     <SearchIcon className="size-4" />
-                    <span className="hidden sm:inline text-xs font-medium">Search</span>
+                    <span className="hidden lg:inline text-xs font-medium">Search</span>
                   </PromptInputButton>
 
                   <PromptInputButton
@@ -379,11 +379,11 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
                     className="h-8"
                   >
                     <BugIcon className="size-4" />
-                    <span className="hidden sm:inline text-xs font-medium">Debug</span>
+                    <span className="hidden lg:inline text-xs font-medium">Debug</span>
                   </PromptInputButton>
                 </PromptInputTools>
 
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 items-center gap-2">
                   <Context
                     maxOutputTokens={contextEstimate.maxOutputTokens}
                     usedTokens={contextEstimate.usedTokens}
@@ -400,7 +400,7 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
                       </ContextContentBody>
                     </ContextContent>
                   </Context>
-                  <PromptInputSubmit status={status} className="size-9 rounded-full" />
+                  <PromptInputSubmit status={status} className="size-9 rounded-full shrink-0" />
                 </div>
               </PromptInputFooter>
             </PromptInput>
