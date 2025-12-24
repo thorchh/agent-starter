@@ -170,8 +170,6 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
     },
   });
 
-  console.log("[ChatClient] useChat initialized with id:", props.id);
-
   // The assistant message streamed back from the server does not currently include
   // our branching metadata (we add that during persistence on the server). If we
   // treat those as "root" children, the branch UI can incorrectly group a user
@@ -203,11 +201,6 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
     () => deriveVisiblePath(allMessages, branchSelection),
     [allMessages, branchSelection]
   );
-
-  // Log status and message changes
-  useEffect(() => {
-    console.log("[ChatClient] Status:", status, "Visible messages:", visibleMessages.length);
-  }, [status, visibleMessages.length]);
 
   // When a response finishes streaming, the server has persisted the chat.
   // Tell the sidebar to refresh its list so the chat appears/highlights without reload.
@@ -267,13 +260,6 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
   }, [visibleMessages]);
 
   const handleSubmit = async (message: PromptInputMessage) => {
-    console.log("[ChatClient] handleSubmit called", {
-      text: message.text?.substring(0, 50),
-      hasAttachments: Boolean(message.files?.length),
-      chatId: props.id,
-      messagesCount: visibleMessages.length
-    });
-
     const hasText = Boolean(message.text?.trim());
     const hasAttachments = Boolean(message.files?.length);
     if (!(hasText || hasAttachments)) return;
@@ -307,7 +293,6 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
 
     // Clear input immediately to provide instant visual feedback
     setInput("");
-    console.log("[ChatClient] Input cleared, calling sendMessage with chatId:", props.id);
 
     try {
       // Optimistically switch this parent to the newest sibling (the one we're creating).
@@ -323,7 +308,6 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
       await sendMessage(outgoing, {
         body: { model, useSearch, mode: "append", parentId },
       });
-      console.log("[ChatClient] sendMessage completed successfully");
     } catch (e) {
       console.error("[ChatClient] sendMessage failed:", e);
       // Error is handled by onError callback in useChat, which sets error state
