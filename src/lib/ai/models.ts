@@ -71,6 +71,7 @@ export const MODEL_OPTIONS: ModelOption[] = [
   { label: "GPT-5 (AI Gateway)", id: "gateway/openai/gpt-5" },
   { label: "DeepSeek R1 (AI Gateway)", id: "gateway/deepseek-r1" },
   { label: "Gemini 2.5 Pro (AI Gateway)", id: "gateway/google/gemini-2.5-pro" },
+  { label: "Nano Banana Pro (AI Gateway)", id: "gateway/google/gemini-3-pro-image" },
 
   // ──────────────────────────────────────────────────────────────────────
   // GROQ MODELS

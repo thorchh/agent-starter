@@ -74,18 +74,22 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
     return new DefaultChatTransport({
       api: "/api/chat",
       // Docs pattern: send only the last message; server loads + persists history.
-      prepareSendMessagesRequest({ messages, id }) {
+      // Important: `useChat` may not pick up transport changes after initialization.
+      // So we pass per-request options (model/useSearch) via sendMessage({ body })
+      // and merge them here to ensure server routing matches the current UI selection.
+      prepareSendMessagesRequest({ messages, id, body }) {
+        const extra = (body ?? {}) as { model?: string; useSearch?: boolean };
         return {
           body: {
             message: messages[messages.length - 1],
             id,
-            model,
-            useSearch,
+            model: extra.model,
+            useSearch: extra.useSearch,
           },
         };
       },
     });
-  }, [model, useSearch]);
+  }, []);
 
   const { messages, sendMessage, status, regenerate } = useChat({
     id: props.id,
@@ -186,7 +190,7 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
     console.log("[ChatClient] Input cleared, calling sendMessage with chatId:", props.id);
 
     try {
-      await sendMessage(outgoing);
+      await sendMessage(outgoing, { body: { model, useSearch } });
       console.log("[ChatClient] sendMessage completed successfully");
     } catch (e) {
       console.error("[ChatClient] sendMessage failed:", e);
@@ -275,7 +279,7 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
                         message.role === "assistant"
                           ? () =>
                             regenerate({
-                              body: { id: props.id },
+                              body: { id: props.id, model, useSearch },
                             })
                           : undefined
                       }

@@ -20,7 +20,7 @@ import {
   XIcon,
 } from "lucide-react";
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
-import { createContext, memo, useContext, useEffect, useState } from "react";
+import { createContext, memo, useContext, useEffect, useMemo, useState } from "react";
 import { Streamdown } from "streamdown";
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
@@ -334,9 +334,33 @@ export function MessageAttachment({
   ...props
 }: MessageAttachmentProps) {
   const filename = data.filename || "";
-  const mediaType =
-    data.mediaType?.startsWith("image/") && data.url ? "image" : "file";
-  const isImage = mediaType === "image";
+  const mediaType = data.mediaType || "";
+
+  // Some models (e.g. Nano Banana Pro) expose image bytes as `uint8Array` in `files`.
+  // When streamed into UI messages, we may receive a `file` part without a usable URL.
+  // In that case, create a blob URL client-side for rendering.
+  const uint8Array = (data as unknown as { uint8Array?: Uint8Array }).uint8Array;
+  const blobUrl = useMemo(() => {
+    if (!uint8Array) return null;
+    if (!mediaType.startsWith("image/")) return null;
+    try {
+      // Ensure the underlying buffer is an ArrayBuffer (not SharedArrayBuffer) for TS/DOM typings.
+      const bytes = Uint8Array.from(uint8Array);
+      const blob = new Blob([bytes], { type: mediaType });
+      return URL.createObjectURL(blob);
+    } catch {
+      return null;
+    }
+  }, [mediaType, uint8Array]);
+
+  useEffect(() => {
+    return () => {
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [blobUrl]);
+
+  const imageUrl = data.url || blobUrl || null;
+  const isImage = mediaType.startsWith("image/") && Boolean(imageUrl);
   const attachmentLabel = filename || (isImage ? "Image" : "Attachment");
 
   return (
@@ -353,7 +377,7 @@ export function MessageAttachment({
             alt={filename || "attachment"}
             className="size-full object-cover"
             height={100}
-            src={data.url}
+            src={imageUrl ?? undefined}
             width={100}
           />
           {onRemove && (

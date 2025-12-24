@@ -14,6 +14,7 @@ import {
   ChainOfThought,
   ChainOfThoughtContent,
   ChainOfThoughtHeader,
+  ChainOfThoughtImage,
   ChainOfThoughtSearchResult,
   ChainOfThoughtSearchResults,
   ChainOfThoughtStep,
@@ -46,15 +47,25 @@ import {
   CloudSunIcon,
   ClockIcon,
   CopyIcon,
+  DownloadIcon,
   FileIcon,
   FileTextIcon,
   ImageIcon,
+  Maximize2Icon,
   RefreshCcwIcon,
   SearchIcon,
   WrenchIcon,
 } from "lucide-react";
 import type { ComponentProps } from "react";
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 export type MessagePartsProps = ComponentProps<"div"> & {
   message: UIMessage;
@@ -92,6 +103,228 @@ export function MessageParts({
   ...props
 }: MessagePartsProps) {
   type Part = UIMessage["parts"][number];
+
+  const normalizeReasoningText = (text: string) => {
+    // Some providers/models emit JSON-escaped newlines in reasoning (e.g. "\\n\\n").
+    // Streamdown expects real newlines to render markdown spacing correctly.
+    return text.includes("\\n") ? text.replaceAll("\\n", "\n") : text;
+  };
+
+  function ThoughtImageItem(props: {
+    part: Extract<Part, { type: "file" }>;
+    messageId: string;
+    index: number;
+  }) {
+    const { part, messageId, index } = props;
+    const mediaType = part.mediaType ?? "image/png";
+    const filename = part.filename || `image-${index + 1}`;
+
+    const uint8Array = (part as unknown as { uint8Array?: Uint8Array }).uint8Array;
+    const blobUrl = useMemo(() => {
+      if (!uint8Array) return null;
+      if (!mediaType.startsWith("image/")) return null;
+      try {
+        const bytes = Uint8Array.from(uint8Array);
+        const blob = new Blob([bytes], { type: mediaType });
+        return URL.createObjectURL(blob);
+      } catch {
+        return null;
+      }
+    }, [mediaType, uint8Array]);
+
+    useEffect(() => {
+      return () => {
+        if (blobUrl) URL.revokeObjectURL(blobUrl);
+      };
+    }, [blobUrl]);
+
+    const imageUrl = (typeof part.url === "string" && part.url.length > 0
+      ? part.url
+      : blobUrl) as string | null;
+
+    if (!imageUrl) return null;
+
+    return (
+      <ChainOfThoughtImage
+        key={`${messageId}-thought-image-${index}`}
+        caption={filename}
+      >
+        <img
+          alt={filename}
+          src={imageUrl}
+          className="max-h-[20rem] w-auto max-w-full rounded-md object-contain"
+        />
+      </ChainOfThoughtImage>
+    );
+  }
+
+  function AssistantImageCard(props: {
+    part: Extract<Part, { type: "file" }>;
+    messageId: string;
+    index: number;
+  }) {
+    const { part, messageId, index } = props;
+    const [open, setOpen] = useState(false);
+    const [copyStatus, setCopyStatus] = useState<null | "copied" | "error">(null);
+
+    const mediaType = part.mediaType ?? "image/png";
+    const filename = part.filename || `image-${index + 1}`;
+
+    const uint8Array = (part as unknown as { uint8Array?: Uint8Array }).uint8Array;
+    const blobUrl = useMemo(() => {
+      if (!uint8Array) return null;
+      if (!mediaType.startsWith("image/")) return null;
+      try {
+        const bytes = Uint8Array.from(uint8Array);
+        const blob = new Blob([bytes], { type: mediaType });
+        return URL.createObjectURL(blob);
+      } catch {
+        return null;
+      }
+    }, [mediaType, uint8Array]);
+
+    useEffect(() => {
+      return () => {
+        if (blobUrl) URL.revokeObjectURL(blobUrl);
+      };
+    }, [blobUrl]);
+
+    const imageUrl = (typeof part.url === "string" && part.url.length > 0
+      ? part.url
+      : blobUrl) as string | null;
+
+    async function copyToClipboard() {
+      setCopyStatus(null);
+      try {
+        if (!imageUrl) throw new Error("Missing image URL");
+        const res = await fetch(imageUrl);
+        const blob = await res.blob();
+        // ClipboardItem is not available in all browsers.
+        const ClipboardItemCtor = (window as unknown as { ClipboardItem?: typeof ClipboardItem })
+          .ClipboardItem;
+        if (!ClipboardItemCtor || !navigator.clipboard?.write) {
+          throw new Error("Clipboard image copy not supported in this browser");
+        }
+        await navigator.clipboard.write([new ClipboardItemCtor({ [blob.type]: blob })]);
+        setCopyStatus("copied");
+      } catch (err) {
+        console.warn("[image] copy failed:", err);
+        setCopyStatus("error");
+      } finally {
+        window.setTimeout(() => setCopyStatus(null), 1500);
+      }
+    }
+
+    return (
+      <>
+        <div className="group relative w-full overflow-hidden rounded-2xl border bg-muted/10">
+          <button
+            type="button"
+            className="block w-full"
+            onClick={() => setOpen(true)}
+            aria-label="Open image"
+          >
+            {imageUrl ? (
+              <img
+                alt={filename}
+                src={imageUrl}
+                className="w-full max-h-[520px] object-contain bg-muted/30"
+              />
+            ) : (
+              <div className="flex h-[260px] items-center justify-center text-muted-foreground text-sm">
+                Image unavailable
+              </div>
+            )}
+          </button>
+
+          <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between gap-2 p-3 opacity-0 transition-opacity group-hover:opacity-100">
+            <div className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-background/80 px-3 py-1 text-xs text-muted-foreground backdrop-blur">
+              <ImageIcon className="size-3.5" />
+              <span className="truncate max-w-[220px]">{filename}</span>
+            </div>
+            <div className="pointer-events-auto flex items-center gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="rounded-full bg-background/80 backdrop-blur"
+                onClick={() => setOpen(true)}
+                aria-label="Expand"
+              >
+                <Maximize2Icon className="size-3.5" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="rounded-full bg-background/80 backdrop-blur"
+                onClick={copyToClipboard}
+                aria-label="Copy image"
+                disabled={!imageUrl}
+              >
+                <CopyIcon className="size-3.5" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="rounded-full bg-background/80 backdrop-blur"
+                asChild
+                aria-label="Download image"
+                disabled={!imageUrl}
+              >
+                <a href={imageUrl ?? undefined} download={filename}>
+                  <DownloadIcon className="size-3.5" />
+                </a>
+              </Button>
+            </div>
+          </div>
+
+          {copyStatus && (
+            <div className="absolute bottom-3 right-3 rounded-full bg-background/80 px-3 py-1 text-xs backdrop-blur">
+              {copyStatus === "copied" ? "Copied" : "Copy failed"}
+            </div>
+          )}
+        </div>
+
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent className="w-[96vw] max-w-[min(96vw,1200px)] sm:max-w-[min(96vw,1400px)]">
+            <DialogHeader>
+              <DialogTitle className="truncate">{filename}</DialogTitle>
+            </DialogHeader>
+            <div className="flex max-h-[82vh] items-center justify-center overflow-hidden rounded-xl bg-muted/30">
+              {imageUrl ? (
+                <img
+                  alt={filename}
+                  src={imageUrl}
+                  className="max-h-[82vh] w-auto max-w-full object-contain"
+                />
+              ) : (
+                <div className="py-10 text-muted-foreground text-sm">Image unavailable</div>
+              )}
+            </div>
+            <DialogFooter>
+              <div className="flex w-full items-center justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                  Close
+                </Button>
+                <Button type="button" variant="secondary" onClick={copyToClipboard} disabled={!imageUrl}>
+                  <CopyIcon className="mr-2 size-4" />
+                  Copy
+                </Button>
+                <Button type="button" asChild disabled={!imageUrl}>
+                  <a href={imageUrl ?? undefined} download={filename}>
+                    <DownloadIcon className="mr-2 size-4" />
+                    Download
+                  </a>
+                </Button>
+              </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
 
   const sources = message.parts.filter(
     (p) => p.type === "source-url" || p.type === "source-document"
@@ -335,6 +568,21 @@ export function MessageParts({
               (part.url.startsWith("local-storage://omitted") ||
                 part.url.startsWith("omitted://"));
 
+            const isImage = Boolean(part.mediaType?.startsWith("image/"));
+
+            // If we're showing the clean thought thread, and this image appeared during
+            // the thought/tool/reasoning phase, render it inside the collapsible thread
+            // instead of duplicating it as a standalone attachment bubble.
+            if (
+              !debug &&
+              shouldShowThoughtThread &&
+              isImage &&
+              lastThoughtPartIndex !== -1 &&
+              i <= lastThoughtPartIndex
+            ) {
+              return null;
+            }
+
             return (
               <Message key={`${message.id}-file-${i}`} from={message.role}>
                 <MessageAttachments className="mt-3">
@@ -354,6 +602,8 @@ export function MessageParts({
                         Content not persisted. Re-upload to reference after refresh.
                       </div>
                     </div>
+                  ) : isImage && message.role === "assistant" ? (
+                    <AssistantImageCard part={part} messageId={message.id} index={i} />
                   ) : (
                     <MessageAttachment data={part} />
                   )}
@@ -380,29 +630,65 @@ export function MessageParts({
                 >
                   <ChainOfThoughtHeader>Thought process</ChainOfThoughtHeader>
                   <ChainOfThoughtContent>
-                    {reasoningParts
-                      .filter((rp) => rp.text.trim().length > 0)
-                      .map((rp, idx, filteredParts) => (
-                        <ChainOfThoughtStep
+                    {message.parts
+                      .slice(
+                        Math.max(0, firstReasoningPartIndex),
+                        lastReasoningPartIndex === -1
+                          ? message.parts.length
+                          : lastReasoningPartIndex + 1
+                      )
+                      .map((p, partIndexInSlice) => {
+                        const absoluteIndex =
+                          Math.max(0, firstReasoningPartIndex) + partIndexInSlice;
+
+                        if (
+                          p.type === "file" &&
+                          typeof p.mediaType === "string" &&
+                          p.mediaType.startsWith("image/") &&
+                          !(
+                            typeof p.url === "string" &&
+                            (p.url.startsWith("omitted://") ||
+                              p.url.startsWith("local-storage://omitted"))
+                          )
+                        ) {
+                          return (
+                            <ThoughtImageItem
+                              key={`${message.id}-thought-image-${absoluteIndex}`}
+                              part={p}
+                              messageId={message.id}
+                              index={absoluteIndex}
+                            />
+                          );
+                        }
+
+                        if (p.type === "reasoning" && p.text.trim().length > 0) {
                           // Inline (no label). Use aria-label for accessibility.
-                          key={`${message.id}-reasoning-${idx}`}
-                          aria-label="Reasoning"
-                          role="group"
-                          status={
-                            status === "streaming" &&
-                              isLastMessage &&
-                              message.role === "assistant" &&
-                              rp.state === "streaming"
-                              ? "active"
-                              : "complete"
-                          }
-                          isLast={idx === filteredParts.length - 1}
-                        >
-                          <div className="text-muted-foreground text-xs [&_code]:text-[11px] [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:bg-muted/60">
-                            <MessageResponse>{rp.text}</MessageResponse>
-                          </div>
-                        </ChainOfThoughtStep>
-                      ))}
+                          return (
+                            <ChainOfThoughtStep
+                              key={`${message.id}-reasoning-${absoluteIndex}`}
+                              aria-label="Reasoning"
+                              role="group"
+                              status={
+                                status === "streaming" &&
+                                isLastMessage &&
+                                message.role === "assistant" &&
+                                p.state === "streaming"
+                                  ? "active"
+                                  : "complete"
+                              }
+                              isLast={absoluteIndex === lastReasoningPartIndex}
+                            >
+                              <div className="text-muted-foreground text-xs [&_code]:text-[11px] [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:bg-muted/60">
+                                <MessageResponse>
+                                  {normalizeReasoningText(p.text)}
+                                </MessageResponse>
+                              </div>
+                            </ChainOfThoughtStep>
+                          );
+                        }
+
+                        return null;
+                      })}
                   </ChainOfThoughtContent>
                 </ChainOfThought>
               );
@@ -477,6 +763,28 @@ export function MessageParts({
                     <ChainOfThoughtHeader>Thought process</ChainOfThoughtHeader>
                     <ChainOfThoughtContent>
                       {message.parts.map((p, partIndex) => {
+                        // Render image previews that happened during the thought/tool phase.
+                        if (
+                          p.type === "file" &&
+                          partIndex <= lastThoughtPartIndex &&
+                          typeof p.mediaType === "string" &&
+                          p.mediaType.startsWith("image/") &&
+                          !(
+                            typeof p.url === "string" &&
+                            (p.url.startsWith("omitted://") ||
+                              p.url.startsWith("local-storage://omitted"))
+                          )
+                        ) {
+                          return (
+                            <ThoughtImageItem
+                              key={`${message.id}-thought-image-${partIndex}`}
+                              part={p}
+                              messageId={message.id}
+                              index={partIndex}
+                            />
+                          );
+                        }
+
                         // Render reasoning parts
                         if (p.type === "reasoning") {
                           if (p.text.trim().length === 0) return null;
@@ -497,7 +805,7 @@ export function MessageParts({
                               className="pb-3"
                             >
                               <div className="text-muted-foreground text-xs [&_code]:text-[11px] [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:bg-muted/60">
-                                <MessageResponse>{p.text}</MessageResponse>
+                                <MessageResponse>{normalizeReasoningText(p.text)}</MessageResponse>
                               </div>
                             </ChainOfThoughtStep>
                           );

@@ -75,6 +75,8 @@ type ChatRequestBody = {
   useSearch?: boolean;
 };
 
+const NANO_BANANA_PRO_MODEL_ID = "gateway/google/gemini-3-pro-image";
+
 // ============================================================================
 // MAIN HANDLER
 // ============================================================================
@@ -140,6 +142,7 @@ export async function POST(req: Request) {
     // ──────────────────────────────────────────────────────────────────────
     const requestedModel = body.model?.trim() || getDefaultModelId();
     const useSearch = Boolean(body.useSearch);
+    const isNanoBananaPro = requestedModel === NANO_BANANA_PRO_MODEL_ID;
 
     // SECURITY: Validate model against allowlist (prevents arbitrary model access)
     assertAllowedModelId(requestedModel);
@@ -371,10 +374,83 @@ export async function POST(req: Request) {
 
         // Docs-aligned: persist the messages returned by the stream response.
         // Ensure all messages have IDs.
-        const messagesWithIds = finishedMessages.map((msg) => ({
+        let messagesWithIds = finishedMessages.map((msg) => ({
           ...msg,
           id: msg.id || generateId(),
         }));
+
+        // Nano Banana Pro (Gemini image model) returns images in `result.files` as Uint8Array
+        // (see Vercel docs). For persistence we normalize any image bytes into data URLs so
+        // our chat store can store them via the attachment pipeline.
+        //
+        // Ref: https://vercel.com/docs/ai-gateway/image-generation/ai-sdk#nano-banana-pro-google/gemini-3-pro-image
+        if (isNanoBananaPro) {
+          const toDataUrl = (uint8Array: Uint8Array, mediaType?: string) => {
+            const mt = mediaType?.trim() || "image/png";
+            const b64 = Buffer.from(uint8Array).toString("base64");
+            return `data:${mt};base64,${b64}`;
+          };
+
+          // 1) Normalize any `file` parts that include uint8Array but no URL.
+          messagesWithIds = messagesWithIds.map((m) => {
+            const parts = (m.parts ?? []).map((p) => {
+              if (p.type !== "file") return p;
+              const maybe = p as typeof p & { uint8Array?: Uint8Array };
+              if (typeof maybe.url === "string" && maybe.url.length > 0) return p;
+              if (maybe.uint8Array && maybe.mediaType?.startsWith("image/")) {
+                return {
+                  ...p,
+                  url: toDataUrl(maybe.uint8Array, maybe.mediaType),
+                };
+              }
+              return p;
+            });
+            return { ...m, parts };
+          });
+
+          // 2) If the stream didn't include file parts, append images from `result.files`.
+          // This keeps the UI + persistence consistent.
+          try {
+            const finalResult = await result;
+            const files = await (finalResult as unknown as { files?: unknown })
+              .files;
+            const imageFiles = (Array.isArray(files) ? files : []).filter(
+              (f) => f.mediaType?.startsWith("image/") && f.uint8Array
+            );
+
+            if (imageFiles.length > 0) {
+              const lastIdx = messagesWithIds.length - 1;
+              const last = messagesWithIds[lastIdx];
+              if (last && last.role === "assistant") {
+                const alreadyHasImages = (last.parts ?? []).some(
+                  (p) =>
+                    p.type === "file" &&
+                    typeof (p as { mediaType?: string }).mediaType === "string" &&
+                    (p as { mediaType?: string }).mediaType!.startsWith("image/")
+                );
+
+                if (!alreadyHasImages) {
+                  const now = Date.now();
+                  const newParts = [
+                    ...(last.parts ?? []),
+                    ...imageFiles.map((f, index) => {
+                      const ext = f.mediaType?.split("/")[1] || "png";
+                      return {
+                        type: "file" as const,
+                        mediaType: f.mediaType,
+                        filename: `generated-${now}-${index}.${ext}`,
+                        url: toDataUrl(f.uint8Array!, f.mediaType),
+                      };
+                    }),
+                  ];
+                  messagesWithIds[lastIdx] = { ...last, parts: newParts };
+                }
+              }
+            }
+          } catch (err) {
+            console.warn("[API /api/chat] Failed to read Nano Banana files:", err);
+          }
+        }
 
         try {
           await saveChat({ id, messages: messagesWithIds });
