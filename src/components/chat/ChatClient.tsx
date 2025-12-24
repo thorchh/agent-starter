@@ -5,6 +5,7 @@ import type { UIMessage } from "ai";
 import { DefaultChatTransport } from "ai";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { nanoid } from "nanoid";
 
 import {
   Conversation,
@@ -12,6 +13,15 @@ import {
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
 import { Loader } from "@/components/ai-elements/loader";
+import {
+  MessageBranch,
+  MessageBranchContent,
+  MessageBranchNext,
+  MessageBranchPage,
+  MessageBranchPrevious,
+  MessageBranchSelector,
+  MessageAction,
+} from "@/components/ai-elements/message";
 import {
   PromptInput,
   PromptInputActionAddAttachments,
@@ -48,11 +58,21 @@ import {
 import { ChatHeader } from "@/components/chat/ChatHeader";
 import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { MessageParts } from "@/components/chat/MessageParts";
-import { BugIcon, SearchIcon, MenuIcon, Sparkles } from "lucide-react";
+import { BugIcon, CopyIcon, PencilIcon, SearchIcon, MenuIcon, Sparkles } from "lucide-react";
 import { MODEL_OPTIONS } from "@/lib/ai/models";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import {
+  deriveVisiblePath,
+  getParentId,
+  getSiblingsForMessage,
+  mergeMessagesById,
+  parentKeyFromParentId,
+  ROOT_PARENT_ID,
+  type BranchSelectionByParentKey,
+  withBranchingMetadata,
+} from "@/lib/chat/branching";
 
 const SUGGESTIONS = [
   "Summarize what you can do.",
@@ -70,6 +90,48 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
   const [debug, setDebug] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Full message tree (includes branches). `useChat().messages` can be truncated
+  // during regenerate; we keep a merged superset here.
+  const [historicalMessages, setHistoricalMessages] = useState<UIMessage[]>(() => {
+    const base = props.initialMessages;
+    // Backward-compatible: infer parentId for legacy linear chats.
+    return base.map((m, i) => {
+      const hasParent = getParentId(m) !== undefined;
+      if (hasParent) return m;
+      const inferredParentId: string | null =
+        i === 0 ? ROOT_PARENT_ID : base[i - 1]?.id ?? ROOT_PARENT_ID;
+      return withBranchingMetadata(m, { parentId: inferredParentId });
+    });
+  });
+
+  const [branchSelection, setBranchSelection] = useState<BranchSelectionByParentKey>(() => {
+    try {
+      const raw = localStorage.getItem(`chat:branchSelection:${props.id}`);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw) as unknown;
+      if (!parsed || typeof parsed !== "object") return {};
+      return parsed as BranchSelectionByParentKey;
+    } catch {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        `chat:branchSelection:${props.id}`,
+        JSON.stringify(branchSelection)
+      );
+    } catch {
+      // ignore
+    }
+  }, [branchSelection, props.id]);
+
+  const [editingUserMessageId, setEditingUserMessageId] = useState<string | null>(
+    null
+  );
+  const [editingDraft, setEditingDraft] = useState<string>("");
+
   const transport = useMemo(() => {
     return new DefaultChatTransport({
       api: "/api/chat",
@@ -78,20 +140,27 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
       // So we pass per-request options (model/useSearch) via sendMessage({ body })
       // and merge them here to ensure server routing matches the current UI selection.
       prepareSendMessagesRequest({ messages, id, body }) {
-        const extra = (body ?? {}) as { model?: string; useSearch?: boolean };
+        const extra = (body ?? {}) as {
+          model?: string;
+          useSearch?: boolean;
+          mode?: "append" | "regenerate";
+          parentId?: string | null;
+        };
         return {
           body: {
             message: messages[messages.length - 1],
             id,
             model: extra.model,
             useSearch: extra.useSearch,
+            mode: extra.mode,
+            parentId: extra.parentId,
           },
         };
       },
     });
   }, []);
 
-  const { messages, sendMessage, status, regenerate } = useChat({
+  const { messages, setMessages, sendMessage, status, regenerate } = useChat({
     id: props.id,
     messages: props.initialMessages,
     transport,
@@ -103,22 +172,54 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
 
   console.log("[ChatClient] useChat initialized with id:", props.id);
 
+  // The assistant message streamed back from the server does not currently include
+  // our branching metadata (we add that during persistence on the server). If we
+  // treat those as "root" children, the branch UI can incorrectly group a user
+  // message and its assistant reply as siblings. To keep the UI correct while
+  // streaming, infer missing parentId based on the current linear message order.
+  const normalizedLiveMessages = useMemo(() => {
+    const out: UIMessage[] = [];
+    for (let i = 0; i < messages.length; i++) {
+      const m = messages[i]!;
+      const hasParent = getParentId(m) !== undefined;
+      if (hasParent) {
+        out.push(m);
+        continue;
+      }
+      const inferredParentId: string | null =
+        i === 0 ? ROOT_PARENT_ID : messages[i - 1]?.id ?? ROOT_PARENT_ID;
+      out.push(withBranchingMetadata(m, { parentId: inferredParentId }));
+    }
+    return out;
+  }, [messages]);
+
+  // Derive the full message tree without syncing state in an effect (eslint rule in this repo).
+  const allMessages = useMemo(
+    () => mergeMessagesById(historicalMessages, normalizedLiveMessages),
+    [historicalMessages, normalizedLiveMessages]
+  );
+
+  const visibleMessages = useMemo(
+    () => deriveVisiblePath(allMessages, branchSelection),
+    [allMessages, branchSelection]
+  );
+
   // Log status and message changes
   useEffect(() => {
-    console.log("[ChatClient] Status:", status, "Messages:", messages.length);
-  }, [status, messages.length]);
+    console.log("[ChatClient] Status:", status, "Visible messages:", visibleMessages.length);
+  }, [status, visibleMessages.length]);
 
   // When a response finishes streaming, the server has persisted the chat.
   // Tell the sidebar to refresh its list so the chat appears/highlights without reload.
-  const lastNotifiedMessageCountRef = useRef<number>(props.initialMessages.length);
+  const lastNotifiedMessageCountRef = useRef<number>(allMessages.length);
   useEffect(() => {
     if (status !== "ready") return;
-    if (messages.length <= 0) return;
-    if (messages.length === lastNotifiedMessageCountRef.current) return;
+    if (allMessages.length <= 0) return;
+    if (allMessages.length === lastNotifiedMessageCountRef.current) return;
 
-    lastNotifiedMessageCountRef.current = messages.length;
+    lastNotifiedMessageCountRef.current = allMessages.length;
     window.dispatchEvent(new Event("chats:changed"));
-  }, [status, messages.length]);
+  }, [status, allMessages.length]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -137,14 +238,14 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
   const canNewChat = status === "ready";
 
   const contextEstimate = useMemo(() => {
-    const inputTokens = messages
+    const inputTokens = visibleMessages
       .filter((m) => m.role === "user")
       .flatMap((m) => m.parts)
       .filter((p) => p.type === "text")
       .map((p) => p.text)
       .join("").length / 4;
 
-    const outputTokens = messages
+    const outputTokens = visibleMessages
       .filter((m) => m.role === "assistant")
       .flatMap((m) => m.parts)
       .filter((p) => p.type === "text")
@@ -163,14 +264,14 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
         totalTokens: Math.ceil(inputTokens + outputTokens),
       },
     };
-  }, [messages]);
+  }, [visibleMessages]);
 
   const handleSubmit = async (message: PromptInputMessage) => {
     console.log("[ChatClient] handleSubmit called", {
       text: message.text?.substring(0, 50),
       hasAttachments: Boolean(message.files?.length),
       chatId: props.id,
-      messagesCount: messages.length
+      messagesCount: visibleMessages.length
     });
 
     const hasText = Boolean(message.text?.trim());
@@ -179,18 +280,49 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
 
     setError(null);
 
-    // We rely on transport.prepareSendMessagesRequest to attach { id, model, useSearch }.
-    const outgoing = {
-      text: message.text || (hasAttachments ? "Sent with attachments." : ""),
-      files: message.files,
-    } as const;
+    // Attach new user message to the last visible assistant (or root if empty).
+    const lastVisible = visibleMessages.at(-1) ?? null;
+    const parentId: string | null =
+      !lastVisible
+        ? ROOT_PARENT_ID
+        : lastVisible.role === "assistant"
+          ? lastVisible.id
+          : (getParentId(lastVisible) ?? ROOT_PARENT_ID);
+
+    const outgoing: UIMessage = withBranchingMetadata(
+      {
+        id: nanoid(),
+        role: "user",
+        parts: [
+          ...(message.files ?? []),
+          ...(message.text?.trim()
+            ? [{ type: "text" as const, text: message.text.trim() }]
+            : hasAttachments
+              ? [{ type: "text" as const, text: "Sent with attachments." }]
+              : []),
+        ],
+      },
+      { parentId }
+    );
 
     // Clear input immediately to provide instant visual feedback
     setInput("");
     console.log("[ChatClient] Input cleared, calling sendMessage with chatId:", props.id);
 
     try {
-      await sendMessage(outgoing, { body: { model, useSearch } });
+      // Optimistically switch this parent to the newest sibling (the one we're creating).
+      setBranchSelection((prev) => ({
+        ...prev,
+        [parentKeyFromParentId(parentId)]: 1_000_000_000,
+      }));
+      setHistoricalMessages((prev) => mergeMessagesById(prev, [outgoing]));
+
+      // Keep `useChat` state aligned with the visible branch tip (helps regenerate semantics).
+      setMessages(visibleMessages);
+
+      await sendMessage(outgoing, {
+        body: { model, useSearch, mode: "append", parentId },
+      });
       console.log("[ChatClient] sendMessage completed successfully");
     } catch (e) {
       console.error("[ChatClient] sendMessage failed:", e);
@@ -198,6 +330,57 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
       setError(e instanceof Error ? e.message : "Failed to send message");
     }
   };
+
+  const handleEditUserMessage = async (args: { message: UIMessage; text: string }) => {
+    const original = args.message;
+    const nextText = args.text.trim();
+    if (!nextText) return;
+    if (status !== "ready") return;
+    if (original.role !== "user") return;
+
+    const parentId = (getParentId(original) ?? ROOT_PARENT_ID) as string | null;
+    const parentKey = parentKeyFromParentId(parentId);
+
+    const edited: UIMessage = withBranchingMetadata(
+      {
+        id: nanoid(),
+        role: "user",
+        parts: [
+          // Preserve everything except existing text parts; re-add edited text at the end.
+          ...original.parts.filter((p) => p.type !== "text"),
+          { type: "text" as const, text: nextText },
+        ],
+      },
+      { parentId, editedFromId: original.id }
+    );
+
+    const nextSelection: BranchSelectionByParentKey = {
+      ...branchSelection,
+      [parentKey]: 1_000_000_000, // clamp-to-latest
+    };
+    const nextAll = mergeMessagesById(allMessages, [edited]);
+    const nextVisible = deriveVisiblePath(nextAll, nextSelection);
+
+    setBranchSelection(nextSelection);
+    setHistoricalMessages(nextAll);
+    setMessages(nextVisible);
+
+    try {
+      await sendMessage(edited, {
+        body: { model, useSearch, mode: "append", parentId },
+      });
+    } catch (e) {
+      console.error("[ChatClient] edit sendMessage failed:", e);
+      setError(e instanceof Error ? e.message : "Failed to edit message");
+    }
+  };
+
+  const getTextFromMessage = (m: UIMessage) =>
+    m.parts
+      .filter((p) => p.type === "text")
+      .map((p) => p.text)
+      .join("")
+      .trim();
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background font-sans selection:bg-primary/10 selection:text-primary">
@@ -239,7 +422,7 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
             <Conversation className="flex-1">
               {/* Add bottom padding so the floating input bubble never covers content */}
               <ConversationContent className="gap-8 px-0 py-8 pb-40">
-                {messages.length === 0 ? (
+                {visibleMessages.length === 0 ? (
                   <div className="flex flex-1 flex-col items-center justify-center gap-10 py-16 text-center animate-fade-in">
                     <div className="flex flex-col items-center gap-4">
                       <div className="flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 text-primary">
@@ -269,22 +452,134 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
                     </div>
                   </div>
                 ) : (
-                  messages.map((message) => (
-                    <MessageParts
-                      key={message.id}
-                      debug={debug}
-                      isLastMessage={message.id === messages.at(-1)?.id}
-                      message={message}
-                      onRetry={
-                        message.role === "assistant"
-                          ? () =>
-                            regenerate({
-                              body: { id: props.id, model, useSearch },
-                            })
-                          : undefined
+                  visibleMessages.map((message) => (
+                    (() => {
+                      const { siblings, parentKey, index } = getSiblingsForMessage(
+                        allMessages,
+                        message
+                      );
+
+                      const lastVisibleId = visibleMessages.at(-1)?.id;
+                      const hasBranches = siblings.length > 1;
+
+                      const renderOne = (m: UIMessage) => {
+                        const isSelected = m.id === message.id;
+                        const isLastMessage = Boolean(isSelected && m.id === lastVisibleId);
+
+                        const retryParentUserId =
+                          m.role === "assistant"
+                            ? (getParentId(m) ?? null)
+                            : null;
+
+                        return (
+                          <MessageParts
+                            key={m.id}
+                            debug={debug}
+                            isLastMessage={isLastMessage}
+                            message={m}
+                            userEdit={
+                              m.role === "user" && editingUserMessageId === m.id
+                                ? {
+                                  isEditing: true,
+                                  draft: editingDraft,
+                                  onDraftChange: setEditingDraft,
+                                  onCancel: () => {
+                                    setEditingUserMessageId(null);
+                                    setEditingDraft("");
+                                  },
+                                  onSave: (text) => {
+                                    setEditingUserMessageId(null);
+                                    setEditingDraft("");
+                                    handleEditUserMessage({ message: m, text });
+                                  },
+                                }
+                                : undefined
+                            }
+                            onRetry={
+                              isLastMessage &&
+                              m.role === "assistant" &&
+                              typeof retryParentUserId === "string"
+                                ? () => {
+                                  setBranchSelection((prev) => ({
+                                    ...prev,
+                                    [parentKeyFromParentId(retryParentUserId)]: 1_000_000_000,
+                                  }));
+                                  setMessages(visibleMessages);
+                                  regenerate({
+                                    messageId: m.id,
+                                    body: {
+                                      id: props.id,
+                                      model,
+                                      useSearch,
+                                      mode: "regenerate",
+                                      parentId: retryParentUserId,
+                                    },
+                                  });
+                                }
+                                : undefined
+                            }
+                            status={status}
+                          />
+                        );
+                      };
+
+                      if (!hasBranches) {
+                        return renderOne(message);
                       }
-                      status={status}
-                    />
+
+                      return (
+                        <MessageBranch
+                          key={`branch-${parentKey}-${index}`}
+                          defaultBranch={index}
+                          onBranchChange={(branchIndex) => {
+                            setBranchSelection((prev) => ({
+                              ...prev,
+                              [parentKey]: branchIndex,
+                            }));
+                          }}
+                        >
+                          <MessageBranchContent>
+                            {siblings.map((sib) => renderOne(sib))}
+                          </MessageBranchContent>
+                          {!(message.role === "user" && editingUserMessageId === message.id) && (
+                            <div
+                              className={cn(
+                                "mt-1 inline-flex items-center gap-1 text-muted-foreground",
+                                message.role === "user" ? "ml-auto" : "mr-auto"
+                              )}
+                            >
+                              {message.role === "user" && (
+                                <>
+                                  <MessageAction
+                                    label="Copy"
+                                    onClick={() => {
+                                      const t = getTextFromMessage(message);
+                                      if (t) navigator.clipboard.writeText(t);
+                                    }}
+                                  >
+                                    <CopyIcon className="size-3.5" />
+                                  </MessageAction>
+                                  <MessageAction
+                                    label="Edit"
+                                    onClick={() => {
+                                      setEditingUserMessageId(message.id);
+                                      setEditingDraft(getTextFromMessage(message));
+                                    }}
+                                  >
+                                    <PencilIcon className="size-3.5" />
+                                  </MessageAction>
+                                </>
+                              )}
+                              <MessageBranchSelector from={message.role} className="w-fit">
+                                <MessageBranchPrevious />
+                                <MessageBranchPage />
+                                <MessageBranchNext />
+                              </MessageBranchSelector>
+                            </div>
+                          )}
+                        </MessageBranch>
+                      );
+                    })()
                   ))
                 )}
 

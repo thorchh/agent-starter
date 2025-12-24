@@ -47,7 +47,9 @@ export const MessageContent = ({
 }: MessageContentProps) => (
   <div
     className={cn(
-      "flex w-fit max-w-full min-w-0 flex-col gap-2 overflow-hidden text-sm leading-relaxed shadow-sm transition-all duration-200 animate-slide-up",
+      // No entrance animation: branch switching remounts message content and any animation replays,
+      // which feels distracting. Keep this fully static.
+      "flex w-fit max-w-full min-w-0 flex-col gap-2 overflow-hidden text-sm leading-relaxed shadow-sm",
       "group-[.is-user]:ml-auto group-[.is-user]:rounded-2xl group-[.is-user]:bg-muted group-[.is-user]:text-foreground group-[.is-user]:px-4 group-[.is-user]:py-2.5 group-[.is-user]:shadow-none",
       "group-[.is-assistant]:w-full group-[.is-assistant]:px-0 group-[.is-assistant]:py-2 group-[.is-assistant]:text-foreground group-[.is-assistant]:shadow-none",
       className

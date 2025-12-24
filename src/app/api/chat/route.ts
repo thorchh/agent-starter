@@ -43,6 +43,12 @@ import { getModel } from "@/lib/ai/provider";
 import { SYSTEM_PROMPT } from "@/lib/ai/system-prompt";
 import { tools } from "@/lib/ai/tools";
 import { loadChat, saveChat } from "@/lib/chat/server/fileChatStore";
+import {
+  getParentId,
+  mergeMessagesById,
+  ROOT_PARENT_ID,
+  withBranchingMetadata,
+} from "@/lib/chat/branching";
 
 // ============================================================================
 // CONFIGURATION
@@ -62,8 +68,19 @@ export const maxDuration = 30; // seconds
  * Request body structure from client (useChat hook).
  */
 type ChatRequestBody = {
-  /** New message from user */
-  message: UIMessage;
+  /**
+   * Mode for this request:
+   * - append: add a new user message under `parentId` and generate an assistant reply
+   * - regenerate: generate a new assistant reply for an existing user message `parentId`
+   */
+  mode?: "append" | "regenerate";
+
+  /**
+   * New message from user (required for mode=append).
+   * When mode=regenerate, this may still be present (client sends last message),
+   * but is ignored for persistence.
+   */
+  message?: UIMessage;
 
   /** Chat ID for loading/saving history */
   id: string;
@@ -73,6 +90,12 @@ type ChatRequestBody = {
 
   /** Whether to enable web search (OpenAI built-in) */
   useSearch?: boolean;
+
+  /**
+   * In append mode: the parent message id (assistant) that this user message should attach to.
+   * In regenerate mode: the target user message id to regenerate an assistant reply for.
+   */
+  parentId?: string | null;
 };
 
 const NANO_BANANA_PRO_MODEL_ID = "gateway/google/gemini-3-pro-image";
@@ -113,9 +136,10 @@ export async function POST(req: Request) {
     }
 
     // Validate message
-    const message = body.message;
-    if (!message) {
-      console.error("[API /api/chat] Missing message");
+    const mode = body.mode ?? "append";
+    const incomingMessage = body.message;
+    if (mode === "append" && !incomingMessage) {
+      console.error("[API /api/chat] Missing message for append");
       return Response.json({ error: "Missing message" }, { status: 400 });
     }
 
@@ -124,25 +148,106 @@ export async function POST(req: Request) {
     // ──────────────────────────────────────────────────────────────────────
     // Client sends only the new message; server loads full history from storage.
     // This keeps client payloads small and ensures consistency.
-    let previousMessages: UIMessage[] = [];
+    let storedMessages: UIMessage[] = [];
     try {
-      previousMessages = await loadChat(id);
+      storedMessages = await loadChat(id);
     } catch (err) {
       console.warn("[API /api/chat] Failed to load chat history, starting fresh:", err);
-      previousMessages = [];
+      storedMessages = [];
     }
 
     console.log(
-      `[API /api/chat] Loaded ${previousMessages.length} previous messages for chat ${id}`
+      `[API /api/chat] Loaded ${storedMessages.length} previous messages for chat ${id}`
     );
 
-    // Add timestamp to user message if not present
-    const messageWithTimestamp: UIMessage = {
-      ...message,
-      timestamp: (message as UIMessage & { timestamp?: number }).timestamp || Date.now(),
+    // Ensure every stored message has a parentId. For legacy (linear) chats, infer it
+    // from array order. For already-branched chats, we preserve existing parentId.
+    const normalizedStoredMessages: UIMessage[] = storedMessages.map((m, i) => {
+      const hasParent = getParentId(m) !== undefined;
+      if (hasParent) return m;
+      const inferredParentId: string | null =
+        i === 0 ? ROOT_PARENT_ID : storedMessages[i - 1]?.id ?? ROOT_PARENT_ID;
+      return withBranchingMetadata(m, { parentId: inferredParentId });
+    });
+
+    const attachParentId =
+      typeof body.parentId === "string"
+        ? body.parentId
+        : body.parentId === null
+          ? null
+          : null;
+
+    // If append, build the new user message we will attach under `attachParentId`.
+    const userMessageForAppend: UIMessage | null =
+      mode === "append"
+        ? (() => {
+            const m = incomingMessage!;
+            const role = m.role ?? "user";
+            if (role !== "user") {
+              throw new Error("Append requires a user message");
+            }
+            const withId: UIMessage = { ...m, id: m.id || generateId(), role: "user" };
+            const withTimestamp: UIMessage = {
+              ...withId,
+              timestamp:
+                (withId as UIMessage & { timestamp?: number }).timestamp || Date.now(),
+            };
+            return withBranchingMetadata(withTimestamp, { parentId: attachParentId });
+          })()
+        : null;
+
+    // Resolve the user message we are generating a reply for.
+    const targetUserId =
+      mode === "append"
+        ? userMessageForAppend!.id
+        : typeof body.parentId === "string"
+          ? body.parentId
+          : null;
+
+    if (!targetUserId) {
+      return Response.json({ error: "Missing parentId" }, { status: 400 });
+    }
+
+    // Build a prompt path by walking parent pointers from the target user message
+    // back to the root, then reversing.
+    const messageById = new Map<string, UIMessage>();
+    for (const m of normalizedStoredMessages) messageById.set(m.id, m);
+    if (userMessageForAppend) messageById.set(userMessageForAppend.id, userMessageForAppend);
+
+    const buildPathEndingAt = (leafId: string): UIMessage[] => {
+      const path: UIMessage[] = [];
+      const seen = new Set<string>();
+      let currentId: string | null = leafId;
+      while (currentId) {
+        if (seen.has(currentId)) break;
+        seen.add(currentId);
+
+        const msg = messageById.get(currentId);
+        if (!msg) break;
+        path.push(msg);
+
+        const parentId = getParentId(msg);
+        currentId = typeof parentId === "string" ? parentId : null;
+      }
+      return path.reverse();
     };
 
-    const messages = [...previousMessages, messageWithTimestamp];
+    const promptPathMessages: UIMessage[] =
+      mode === "append"
+        ? (() => {
+            // Include the parent chain (assistant) then the new user message.
+            const parentChain = attachParentId ? buildPathEndingAt(attachParentId) : [];
+            return [...parentChain, userMessageForAppend!];
+          })()
+        : buildPathEndingAt(targetUserId);
+
+    const lastPromptMessage = promptPathMessages.at(-1);
+    if (!lastPromptMessage || lastPromptMessage.role !== "user") {
+      return Response.json(
+        { error: "Regeneration target must be a user message" },
+        { status: 400 }
+      );
+    }
 
     // ──────────────────────────────────────────────────────────────────────
     // 3. CONFIGURE MODEL AND FEATURES
@@ -214,24 +319,23 @@ export async function POST(req: Request) {
     // ──────────────────────────────────────────────────────────────────────
     // 7. VALIDATE MESSAGES
     // ──────────────────────────────────────────────────────────────────────
-    // Validate that all tool calls in stored messages match current tool schemas.
-    // This protects against schema changes breaking stored conversations.
-    let validatedMessages: UIMessage[];
+    // Validate that tool calls in the *prompt path* match current tool schemas.
+    // We validate the path only, so unrelated branches cannot break generation.
+    let validatedPromptPath: UIMessage[];
     try {
-      validatedMessages = await validateUIMessages({
-        messages,
+      validatedPromptPath = await validateUIMessages({
+        messages: promptPathMessages,
         tools: requestTools,
       });
     } catch (err) {
-      // Docs-aligned: if persisted messages don't validate against current schemas,
-      // fall back gracefully rather than breaking the chat.
-      // Ref: https://ai-sdk.dev/docs/ai-sdk-ui/chatbot-message-persistence
       if (err instanceof TypeValidationError) {
-        console.error("[API /api/chat] validateUIMessages failed; dropping history:", err);
-        validatedMessages = [message];
-      } else {
-        throw err;
+        console.error("[API /api/chat] validateUIMessages failed for prompt path:", err);
+        return Response.json(
+          { error: "Chat history is incompatible with current tool schemas." },
+          { status: 400 }
+        );
       }
+      throw err;
     }
 
     type AnyPart = UIMessage["parts"][number];
@@ -269,7 +373,7 @@ export async function POST(req: Request) {
       return false;
     };
 
-    const modelReadyMessages: UIMessage[] = validatedMessages.map((m) => {
+    const modelReadyMessages: UIMessage[] = validatedPromptPath.map((m) => {
       const parts = m.parts ?? [];
       const unsupportedFiles = parts
         .filter(isFilePart)
@@ -371,7 +475,7 @@ export async function POST(req: Request) {
       sendSources: true,
 
       // Original messages for diff detection
-      originalMessages: validatedMessages,
+      originalMessages: validatedPromptPath,
 
       // Save chat when stream completes
       onFinish: async ({ messages: finishedMessages }) => {
@@ -379,25 +483,38 @@ export async function POST(req: Request) {
           `[API /api/chat] onFinish called for chat ${id}, saving ${finishedMessages.length} messages`
         );
 
-        // Docs-aligned: persist the messages returned by the stream response.
-        // Ensure all messages have IDs, timestamps, and model info.
-        let messagesWithIds = finishedMessages.map((msg) => {
+        // Merge: keep the full stored tree, and add the newly generated messages.
+        // Ensure IDs, timestamps, model info, and parentId metadata are present.
+        const triggerUserIdForAssistant = targetUserId;
+        const storedIds = new Set(normalizedStoredMessages.map((m) => m.id));
+
+        let finishedWithMeta = finishedMessages.map((msg) => {
           const base = {
             ...msg,
             id: msg.id || generateId(),
             timestamp: (msg as typeof msg & { timestamp?: number }).timestamp || Date.now(),
           };
 
-          // Add model information to assistant messages
-          if (msg.role === "assistant") {
-            return {
-              ...base,
-              model: requestedModel,
-            };
+          const isNew = !storedIds.has(base.id);
+
+          if (msg.role === "assistant" && isNew) {
+            const withParent = withBranchingMetadata(base, {
+              parentId: triggerUserIdForAssistant,
+            });
+            return { ...withParent, model: requestedModel };
           }
 
+          // For append, the user message already has parentId set; for legacy messages
+          // coming from the stream, preserve as-is.
           return base;
         });
+
+        // Always include the append message in the persisted set (even if the stream omits it).
+        if (userMessageForAppend) {
+          finishedWithMeta = mergeMessagesById([userMessageForAppend], finishedWithMeta);
+        }
+
+        let messagesWithIds = mergeMessagesById(normalizedStoredMessages, finishedWithMeta);
 
         // Nano Banana Pro (Gemini image model) returns images in `result.files` as Uint8Array
         // (see Vercel docs). For persistence we normalize any image bytes into data URLs so

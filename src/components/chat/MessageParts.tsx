@@ -73,6 +73,13 @@ export type MessagePartsProps = ComponentProps<"div"> & {
   status: ChatStatus;
   isLastMessage: boolean;
   onRetry?: () => void;
+  userEdit?: {
+    isEditing: boolean;
+    draft: string;
+    onDraftChange: (v: string) => void;
+    onCancel: () => void;
+    onSave: (text: string) => void;
+  };
   /**
    * When true, render tool invocations in a verbose, debug-friendly format:
    * - tool step separators
@@ -100,6 +107,7 @@ export function MessageParts({
   status,
   isLastMessage,
   onRetry,
+  userEdit,
   debug = false,
   ...props
 }: MessagePartsProps) {
@@ -153,7 +161,7 @@ export function MessageParts({
         <img
           alt={filename}
           src={imageUrl}
-          className="max-h-[20rem] w-auto max-w-full rounded-md object-contain"
+          className="max-h-80 w-auto max-w-full rounded-md object-contain"
         />
       </ChainOfThoughtImage>
     );
@@ -161,10 +169,9 @@ export function MessageParts({
 
   function AssistantImageCard(props: {
     part: Extract<Part, { type: "file" }>;
-    messageId: string;
     index: number;
   }) {
-    const { part, messageId, index } = props;
+    const { part, index } = props;
     const [open, setOpen] = useState(false);
     const [copyStatus, setCopyStatus] = useState<null | "copied" | "error">(null);
 
@@ -348,6 +355,23 @@ export function MessageParts({
 
   const showActions = message.role === "assistant" && isLastMessage;
 
+  const userText = useMemo(() => {
+    if (message.role !== "user") return "";
+    return message.parts
+      .filter((p) => p.type === "text")
+      .map((p) => p.text)
+      .join("")
+      .trim();
+  }, [message.parts, message.role]);
+
+  const firstUserTextPartIndex = useMemo(() => {
+    if (message.role !== "user") return -1;
+    return message.parts.findIndex((p) => p.type === "text");
+  }, [message.parts, message.role]);
+
+  const isEditingUser = Boolean(userEdit?.isEditing) && message.role === "user";
+  const editDraft = isEditingUser ? userEdit!.draft : userText;
+
   const toolParts = useMemo(
     () => message.parts.filter((p) => isToolOrDynamicToolUIPart(p)),
     [message.parts]
@@ -526,6 +550,78 @@ export function MessageParts({
             const isActionPart = showActions && i === lastTextPartIndex;
             const showMetadata = isActionPart && (hasTimestamp(message) || (message.role === "assistant" && hasModel(message)));
 
+            // Inline editing for user messages (ChatGPT-style).
+            if (message.role === "user") {
+              // Only render one editor bubble for the first text part.
+              if (i !== firstUserTextPartIndex) return null;
+
+              const trimmed = editDraft.trim();
+              const canSave = trimmed.length > 0 && trimmed !== userText;
+
+              return (
+                <Message key={`${message.id}-user-edit`} from={message.role}>
+                  <MessageContent
+                    className={cn(
+                      isEditingUser && "w-full max-w-3xl py-4"
+                    )}
+                  >
+                    {isEditingUser ? (
+                      <div className="flex flex-col gap-3">
+                        <textarea
+                          className={cn(
+                            "w-full resize-none bg-transparent text-base leading-6 outline-none",
+                            "min-h-[120px]"
+                          )}
+                          value={editDraft}
+                          onChange={(e) => userEdit?.onDraftChange(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Escape") {
+                              e.preventDefault();
+                              userEdit?.onCancel();
+                            }
+                            if (
+                              e.key === "Enter" &&
+                              (e.metaKey || e.ctrlKey) &&
+                              canSave
+                            ) {
+                              e.preventDefault();
+                              userEdit?.onSave(trimmed);
+                            }
+                          }}
+                          rows={Math.min(12, Math.max(2, Math.ceil(editDraft.length / 60)))}
+                        />
+                        <div className="flex items-center justify-end gap-2 pt-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-9 rounded-full px-4"
+                            onClick={() => {
+                              userEdit?.onCancel();
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="button"
+                            className="h-9 rounded-full px-4"
+                            disabled={!canSave || status !== "ready"}
+                            onClick={() => {
+                              if (!canSave) return;
+                              userEdit?.onSave(trimmed);
+                            }}
+                          >
+                            Send
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <MessageResponse>{userText || part.text}</MessageResponse>
+                    )}
+                  </MessageContent>
+                </Message>
+              );
+            }
+
             return (
               <Message key={`${message.id}-text-${i}`} from={message.role}>
                 <MessageContent>
@@ -623,7 +719,7 @@ export function MessageParts({
                       </div>
                     </div>
                   ) : isImage && message.role === "assistant" ? (
-                    <AssistantImageCard part={part} messageId={message.id} index={i} />
+                    <AssistantImageCard part={part} index={i} />
                   ) : (
                     <MessageAttachment data={part} />
                   )}
