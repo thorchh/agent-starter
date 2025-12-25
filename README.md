@@ -1,276 +1,360 @@
-## Agent Workflow Starter (AI Elements + AI SDK)
+<div align="center">
 
-Polished starter template for building **agentic workflows** with:
+<!-- Add hero image here: .github/images/hero.png -->
+<img src=".github/images/hero.png" alt="Agent Starter" width="800" />
 
-- Next.js (App Router) + TypeScript + pnpm
-- Tailwind + shadcn/ui + **AI Elements**
-- **Vercel AI SDK** streaming chat + multi-step tool calling
-- Multi-provider support (OpenAI, Groq, AI Gateway)
-- Chat persistence (AI SDK UI) using a file-based store in local dev
+# 🤖 Agent Starter
 
-Docs references:
+**Production-ready AI chat interface with tool calling, streaming, and multi-provider support**
 
-- `https://ai-sdk.dev/elements/examples/chatbot`
-- `https://ai-sdk.dev/elements`
-- `https://ai-sdk.dev/docs/introduction`
-- `https://vercel.com/academy/ai-sdk/ai-elements#the-magic-moment-`
+Built with [Vercel AI SDK](https://ai-sdk.dev) · [AI Elements](https://ai-sdk.dev/elements) · [Next.js 15](https://nextjs.org) · [TypeScript](https://typescriptlang.org)
 
-### Features
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js&logoColor=white)](https://nextjs.org/)
+[![AI SDK](https://img.shields.io/badge/AI_SDK-6.0-orange)](https://ai-sdk.dev)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-This starter includes a rich set of production-ready features:
+[Website](https://agentstarter.fyi) · [Features](#-features) · [Quick Start](#-quick-start) · [Documentation](#-documentation) · [Examples](#-examples)
 
-**Chat Experience:**
-- **Streaming responses** - Real-time AI responses using Vercel AI SDK
-- **Chat history sidebar** - Organized by time (Today, Yesterday, Last 7 days, etc.)
-- **Multi-step tool calling** - Supports iterative tool execution
-- **Search with citations** - Toggle web search with inline citation markers `[1]`, `[2]`
-- **Chain-of-thought visualization** - Collapsible thought process display
-- **Reasoning summaries** - For o-series models (o4-mini, o1, etc.)
-- **File attachments** - Drag-and-drop support (metadata-only in starter)
-- **Draft mode** - Chats aren't persisted until first message
-- **Debug mode** - Verbose tool input/output display
+</div>
 
-**Model Support:**
-- **OpenAI** - GPT-5, GPT-4o, GPT-4o-mini, o4-mini
-- **Groq** - DeepSeek R1 distilled (70B)
-- **AI Gateway** - Route via Vercel AI Gateway
+---
+
+## 🎯 Overview
+
+A polished, production-ready starter template for building AI agents with conversational interfaces. Features streaming responses, multi-step tool calling, web search with citations, and support for multiple AI providers.
+
+Perfect for building:
+- **AI assistants** with custom tools and knowledge
+- **Research agents** with web search and citations
+- **Data analysis tools** with database integration
+- **Customer support bots** with contextual awareness
+- **Internal tools** with API integrations
+
+<div align="center">
+
+<!-- Add demo GIF here: .github/images/demo.gif -->
+<img src=".github/images/demo.gif" alt="Live demo" width="800" />
+
+</div>
+
+## ✨ Features
+
+### 🎨 **Chat Experience**
+
+<table>
+<tr>
+<td width="50%">
+
+**Real-time Streaming**
+- Server-sent events for instant responses
+- Token-by-token streaming display
+- Progress indicators and loading states
+
+**Smart History**
+- Sidebar with time-based grouping
+- Search across conversations
+- Draft mode (no empty chats)
+
+</td>
+<td width="50%">
+
+**Advanced Interactions**
+- Multi-step tool calling
+- File attachments (drag & drop)
+- Inline citations with `[1]`, `[2]` markers
+- Chain-of-thought visualization
+- Message branching & regeneration
+
+</td>
+</tr>
+</table>
+
+### 🤖 **Model Support**
+
+| Provider | Models | Features |
+|----------|--------|----------|
+| **OpenAI** | GPT-5, GPT-4o, o4-mini | Reasoning, tools, web search |
+| **Groq** | DeepSeek R1 (70B) | Fast inference, <think> reasoning |
+| **AI Gateway** | All providers | Unified routing, cost optimization |
+
 - **Runtime switching** - Change models mid-conversation
+- **Reasoning display** - Collapsible thought process for o-series models
+- **Token tracking** - Monitor input/output usage
 
-**UI/UX:**
-- **Theme toggle** - Light/dark mode support
-- **Mobile responsive** - Works on all screen sizes
-- **Keyboard shortcuts** - Cmd+K for new chat, Cmd+Enter to send
-- **Token usage display** - Input/output token tracking
-- **Model selector** - Dropdown in chat UI
+### 🛠️ **Built-in Tools**
 
-**Developer Experience:**
-- **TypeScript strict mode** - Full type safety
-- **ESLint configured** - Next.js + AI Elements rules
-- **Hot reload** - Fast development iteration
-- **Extensible tools** - Simple pattern for adding new tools
-- **Clean architecture** - Clear separation of concerns
+```typescript
+// Example: Weather tool
+const weather = await getWeather({ city: "San Francisco" });
+// → { temp: 72, conditions: "Sunny" }
+```
 
-### Quickstart
+- ⏰ **getTime** - Current server time
+- 🌤️ **getWeather** - Mock weather data (template for real APIs)
+- 📎 **summarizeAttachments** - File content analysis
+- 🔍 **web_search** - OpenAI built-in search (optional toggle)
 
-1. Install dependencies
+→ See [`src/lib/ai/tools/examples/`](src/lib/ai/tools/examples/) for API, database, and search templates
+
+### 🎨 **UI/UX**
+
+<table>
+<tr>
+<td align="center" width="33%">
+
+<!-- Screenshot 1: Light mode -->
+<img src=".github/images/light-mode.png" alt="Light mode" width="250" /><br/>
+**Light Mode**
+
+</td>
+<td align="center" width="33%">
+
+<!-- Screenshot 2: Dark mode -->
+<img src=".github/images/dark-mode.png" alt="Dark mode" width="250" /><br/>
+**Dark Mode**
+
+</td>
+<td align="center" width="33%">
+
+<!-- Screenshot 3: Mobile -->
+<img src=".github/images/mobile.png" alt="Mobile responsive" width="150" /><br/>
+**Mobile Responsive**
+
+</td>
+</tr>
+</table>
+
+- 🎨 **Theme toggle** - Light/dark mode with `next-themes`
+- 📱 **Mobile responsive** - Works on all screen sizes
+- ⌨️ **Keyboard shortcuts** - `Cmd+K` new chat, `Cmd+Enter` send
+- ♿ **Accessible** - ARIA labels, keyboard navigation
+
+### 🏗️ **Developer Experience**
+
+- ✅ **TypeScript strict mode** - Full type safety
+- 🔧 **ESLint + Prettier** - Code quality enforcement
+- 🔥 **Hot reload** - Instant feedback during development
+- 📚 **Comprehensive docs** - Architecture, deployment, contributing guides
+- 🧩 **Modular design** - Easy to extend and customize
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Node.js 18+ ([Download](https://nodejs.org/))
+- pnpm (`npm install -g pnpm`)
+- OpenAI API key ([Get one here](https://platform.openai.com/api-keys))
+
+### Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/thorchh/agent-starter.git
+cd agent-starter
+
+# Install dependencies
 pnpm install
-```
 
-2. Set up environment variables
-
-```bash
-# Copy the example file
+# Set up environment variables
 cp .env.example .env.local
+# Edit .env.local and add your OPENAI_API_KEY
 
-# Edit .env.local and add your OpenAI API key
-OPENAI_API_KEY=sk-...
-```
-
-3. Run dev server
-
-```bash
+# Start the development server
 pnpm dev
 ```
 
-Open:
+Open [http://localhost:3000](http://localhost:3000) to see your app! 🎉
 
-- `http://localhost:3000/` - Landing page
-- `http://localhost:3000/chat` - Chat interface
+### First Steps
 
-### Environment Variables
+1. **Try the chat** - Navigate to `/chat` and ask "What time is it?"
+2. **Test tool calling** - The AI will call the `getTime` tool
+3. **Enable search** - Toggle web search and ask "Latest news about AI"
+4. **Customize** - Edit `src/lib/ai/system-prompt.ts` to change behavior
 
-See `.env.example` for all available configuration options.
+---
 
-**Required:**
+## 🎓 Examples
 
-- `OPENAI_API_KEY` - Your OpenAI API key ([Get one here](https://platform.openai.com/api-keys))
+### Adding a Custom Tool
 
-**Optional Providers:**
+```typescript
+// src/lib/ai/tools/getStockPrice.ts
+import { tool } from "ai";
+import { z } from "zod";
 
-- `GROQ_API_KEY` - For DeepSeek R1 model ([Groq Console](https://console.groq.com))
-- `AI_GATEWAY_API_KEY` - For AI Gateway models ([Vercel AI Gateway](https://vercel.com/docs/ai-gateway))
+export const getStockPrice = tool({
+  description: "Get the current stock price for a symbol",
+  parameters: z.object({
+    symbol: z.string().describe("Stock ticker symbol (e.g., AAPL)"),
+  }),
+  execute: async ({ symbol }) => {
+    // Replace with real API call
+    const price = Math.random() * 1000;
+    return {
+      symbol,
+      price: price.toFixed(2),
+      currency: "USD",
+    };
+  },
+});
 
-**Optional Configuration:**
-
-- `AI_MODEL` - Default model (default: `openai/gpt-5`)
-  - Options: `openai/gpt-5`, `openai/gpt-4o`, `openai/gpt-4o-mini`, `openai/o4-mini`, `groq/deepseek-r1-distill-llama-70b`
-
-**Optional Reasoning Features (o-series models):**
-
-- `ENABLE_REASONING` - Enable reasoning summaries (default: `false`)
-- `OPENAI_REASONING_SUMMARY` - Detail level (`auto` | `detailed`)
-- `OPENAI_REASONING_EFFORT` - Effort level (`minimal` | `low` | `medium` | `high`)
-
-See the [OpenAI reasoning docs](https://ai-sdk.dev/providers/ai-sdk-providers/openai) for more details.
-
-### Multi-Provider Setup
-
-#### OpenAI (Default)
-
-```bash
-# .env.local
-OPENAI_API_KEY=sk-...
+// src/lib/ai/tools/index.ts
+export const tools = {
+  getTime,
+  getWeather,
+  getStockPrice, // ← Add your tool
+};
 ```
 
-Models available: `openai/gpt-5`, `openai/gpt-4o`, `openai/gpt-4o-mini`, `openai/o4-mini`
+### Switching Providers
 
-#### Groq
+```typescript
+// Use Groq for faster inference
+AI_MODEL=groq/deepseek-r1-distill-llama-70b
 
-```bash
-# .env.local
-OPENAI_API_KEY=sk-...
-GROQ_API_KEY=gsk-...
-```
-
-Models available: `groq/deepseek-r1-distill-llama-70b`
-
-#### AI Gateway
-
-```bash
-# .env.local
-OPENAI_API_KEY=sk-...
+// Use AI Gateway for cost optimization
+AI_MODEL=gateway/openai/gpt-5
 AI_GATEWAY_API_KEY=vck-...
 ```
 
-Models available: Any model prefixed with `gateway/`
+### Enabling Reasoning (o-series models)
 
-See `src/lib/ai/provider.ts` for provider routing logic.
-
-### Project structure
-
-#### Chat UI
-
-- `src/app/page.tsx`: landing page with features overview
-- `src/app/chat/page.tsx`: creates a new chat and redirects to `/chat/[id]` (docs pattern)
-- `src/app/chat/[id]/page.tsx`: server-loads persisted messages and renders the chat client
-- `src/components/chat/ChatClient.tsx`: main chat screen (AI Elements `Conversation` + `PromptInput` + `MessageParts`)
-- `src/components/chat/MessageParts.tsx`: the single place where `message.parts` are rendered (text, attachments, tools, reasoning, sources)
-- `src/components/chat/ChatHeader.tsx`: minimal header (clear chat + title)
-- `src/components/chat/ChatSidebar.tsx`: chat history sidebar with search and time-based grouping
-- `src/components/ui/theme-toggle.tsx`: light/dark mode toggle
-
-#### API
-
-- `src/app/api/chat/route.ts`: streaming route handler using `streamText(...).toUIMessageStreamResponse()`
-- `src/app/api/chats/route.ts`: list all chats (GET)
-- `src/app/api/chats/[id]/route.ts`: delete specific chat (DELETE)
-
-#### AI layer
-
-- `src/lib/ai/models.ts`: model allowlist + normalization + defaults
-- `src/lib/ai/provider.ts`: multi-provider routing (OpenAI/Groq/Gateway)
-- `src/lib/ai/system-prompt.ts`: system prompt (short, stable, tool-aware, citation-aware)
-- `src/lib/ai/tools/*`: server-side tool registry
-
-#### Persistence
-
-- `src/lib/chat/server/fileChatStore.ts`: docs-style file store (`.chats/{id}.json`) for local dev
-- `.chats/`: ignored from git; created on demand
-
-**Attachments note:**
-
-This starter **persists attachment metadata only** (filename/mediaType/size). File bytes/URLs are not stored; the UI will ask you to re-upload after refresh. In production, swap in a blob store (S3/R2/Vercel Blob) and persist blob URLs/keys instead.
-
-### API Endpoints
-
-**POST `/api/chat`**
-- Streaming chat endpoint
-- Accepts: `{ id?, messages, modelId?, useSearch?, debug? }`
-- Returns: Streaming `UIMessage` parts
-- Features: Multi-step tools, reasoning extraction, persistence
-
-**GET `/api/chats`**
-- List all chats
-- Returns: `{ id, title, updatedAt }[]`
-- Sorted by most recent first
-
-**DELETE `/api/chats/[id]`**
-- Delete specific chat
-- Returns: Success/error status
-
-### How tool calling works
-
-The server uses AI SDK `streamText` with a tools object (`src/lib/ai/tools/index.ts`). Tool calls/results are streamed to the client as **typed parts** on assistant messages, and rendered via the AI Elements `Tool` components in `MessageParts`.
-
-**Web Search:**
-This starter uses OpenAI's built-in `web_search` tool when the search toggle is enabled in the UI. For custom search integration (Tavily, SerpAPI, Exa), see `src/lib/ai/tools/examples/searchCustomAPI.ts`.
-
-**Built-in Tools:**
-- `getTime` - Returns current server time
-- `getWeather` - Mock weather data (replace with real API)
-- `summarizeAttachments` - Summarizes uploaded files
-
-### Add a new tool
-
-1. Create a new file in `src/lib/ai/tools/`, e.g. `myTool.ts` and export a `tool({ description, parameters, execute })`.
-2. Export it from `src/lib/ai/tools/index.ts`.
-3. Restart the dev server.
-
-See `src/lib/ai/tools/examples/` for templates showing database queries, API calls, custom search, and more.
-
-### DB persistence upgrade path
-
-This starter follows the AI SDK UI persistence flow (server-side storage + chat IDs). The file store is intentionally simple for local dev; on Vercel you should replace it with a real database + blob storage for attachments.
-
-See `DEPLOYMENT.md` for step-by-step instructions on:
-- Vercel Postgres integration
-- Supabase integration
-- Blob storage setup (Vercel Blob, S3, R2)
-
-### Troubleshooting
-
-#### "Missing API key" error
-Ensure you've created `.env.local` with your `OPENAI_API_KEY`:
-```bash
-cp .env.example .env.local
-# Edit .env.local and add your API key
+```typescript
+// .env.local
+ENABLE_REASONING=true
+OPENAI_REASONING_SUMMARY=detailed
+OPENAI_REASONING_EFFORT=high
 ```
 
-#### "Model not allowed" error
-The model ID must be in the allowlist in `src/lib/ai/models.ts`. Check that your `AI_MODEL` environment variable or UI selection matches an allowed model.
+---
 
-#### Attachments not persisting after refresh
-This is expected in the starter. Files are stored as metadata only. For production, integrate blob storage (S3, R2, Vercel Blob). See `DEPLOYMENT.md` for setup instructions.
+## 📁 Project Structure
 
-#### Slow responses
-- **o-series models** (o4-mini, o1) are slower but more capable
-- For faster development, use `gpt-4o-mini`
-- Check your network connection and OpenAI API status
+```
+agent/
+├── src/
+│   ├── app/
+│   │   ├── api/chat/           # Streaming chat endpoint
+│   │   ├── chat/[id]/          # Chat page (dynamic route)
+│   │   └── page.tsx            # Landing page
+│   ├── components/
+│   │   ├── chat/               # Chat UI (Client, Sidebar, MessageParts)
+│   │   ├── ai-elements/        # AI Elements components
+│   │   └── ui/                 # shadcn/ui primitives
+│   └── lib/
+│       ├── ai/
+│       │   ├── provider.ts     # Multi-provider routing
+│       │   ├── models.ts       # Model allowlist & config
+│       │   ├── tools/          # Tool registry
+│       │   └── system-prompt.ts
+│       └── chat/
+│           ├── server/         # File-based chat store
+│           └── store/          # Store implementations
+├── .env.example
+├── ARCHITECTURE.md             # System design deep dive
+├── DEPLOYMENT.md               # Production deployment guide
+└── CONTRIBUTING.md             # Development guidelines
+```
 
-#### Chat history not showing
-- Ensure the `.chats/` directory exists and is writable
-- Check browser console for errors
-- Verify `/api/chats` endpoint is accessible
+---
 
-#### Theme toggle not working
-- Clear browser cache and reload
-- Check that `next-themes` is installed: `pnpm install`
-- Verify ThemeProvider in `src/app/layout.tsx`
+## 🔧 Environment Variables
 
-### Additional Documentation
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `OPENAI_API_KEY` | ✅ | OpenAI API key | - |
+| `GROQ_API_KEY` | ❌ | Groq API key for DeepSeek R1 | - |
+| `AI_GATEWAY_API_KEY` | ❌ | Vercel AI Gateway key | - |
+| `AI_MODEL` | ❌ | Default model ID | `openai/gpt-5` |
+| `ENABLE_REASONING` | ❌ | Show reasoning for o-series models | `false` |
+| `OPENAI_REASONING_SUMMARY` | ❌ | Reasoning detail level | `auto` |
+| `OPENAI_REASONING_EFFORT` | ❌ | Reasoning effort | `high` |
 
-- `ARCHITECTURE.md` - System design and data flow
-- `DEPLOYMENT.md` - Production deployment guide
-- `CONTRIBUTING.md` - Development guidelines
-- `src/lib/ai/tools/examples/README.md` - Tool development examples
+See [`.env.example`](.env.example) for full configuration.
 
-### Next Steps
+---
 
-**For Development:**
-1. Customize the system prompt in `src/lib/ai/system-prompt.ts`
-2. Add your own tools in `src/lib/ai/tools/`
-3. Update branding in `src/app/page.tsx` and `src/app/layout.tsx`
-4. Configure additional models in `src/lib/ai/models.ts`
+## 📖 Documentation
 
-**For Production:**
-1. Set up database persistence (see `DEPLOYMENT.md`)
-2. Configure blob storage for attachments
-3. Add authentication (NextAuth, Clerk, etc.)
-4. Add rate limiting and usage monitoring
-5. Deploy to Vercel (or other Next.js host)
+| Document | Description |
+|----------|-------------|
+| [**ARCHITECTURE.md**](ARCHITECTURE.md) | System design, data flow, and key decisions |
+| [**DEPLOYMENT.md**](DEPLOYMENT.md) | Production deployment with Vercel/Supabase |
+| [**CONTRIBUTING.md**](CONTRIBUTING.md) | Development setup and guidelines |
+| [**Tool Examples**](src/lib/ai/tools/examples/README.md) | Database, API, and search tool templates |
 
-### License
+---
 
-This is a starter template. Use it however you like.
+## 🚢 Deployment
+
+### Quick Deploy to Vercel
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/thorchh/agent-starter)
+
+### Production Checklist
+
+For production use, you'll need to upgrade from the file-based storage:
+
+- [ ] **Database** - Set up Vercel Postgres or Supabase (see [DEPLOYMENT.md](DEPLOYMENT.md))
+- [ ] **Blob Storage** - Configure S3/R2/Vercel Blob for file attachments
+- [ ] **Authentication** - Add NextAuth, Clerk, or Supabase Auth
+- [ ] **Rate Limiting** - Implement per-user/IP rate limits
+- [ ] **Monitoring** - Set up Sentry, Vercel Analytics, or similar
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions.
+
+---
+
+## 🛠️ Tech Stack
+
+| Category | Technologies |
+|----------|-------------|
+| **Framework** | Next.js 16 (App Router), React 19 |
+| **Language** | TypeScript 5 (strict mode) |
+| **AI** | Vercel AI SDK 6.0, AI Elements |
+| **UI** | Tailwind CSS 4, shadcn/ui, Radix UI |
+| **Providers** | OpenAI, Groq, AI Gateway |
+| **Dev Tools** | ESLint, pnpm, Hot Reload |
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
+
+- Development setup
+- Code style guidelines
+- Testing requirements
+- Pull request process
+
+---
+
+## 📝 License
+
+This is a starter template. Use it however you like - MIT License.
+
+---
+
+## 🙏 Acknowledgments
+
+Built with:
+- [Vercel AI SDK](https://ai-sdk.dev) - AI framework
+- [AI Elements](https://ai-sdk.dev/elements) - Pre-built UI components
+- [shadcn/ui](https://ui.shadcn.com) - UI component library
+- [Next.js](https://nextjs.org) - React framework
+
+---
+
+<div align="center">
+
+**[⭐ Star this repo](https://github.com/thorchh/agent-starter)** if you find it useful!
+
+[Website](https://agentstarter.fyi) · [Documentation](https://agentstarter.fyi/docs) · [GitHub](https://github.com/thorchh/agent-starter)
+
+Made with ❤️ for the AI community
+
+</div>

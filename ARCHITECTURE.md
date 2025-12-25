@@ -1,6 +1,6 @@
 # Architecture Overview
 
-This document explains the architecture, design decisions, and data flow of the Agent Workflow Starter.
+This document explains the architecture, design decisions, and data flow of Agent Starter.
 
 ## Table of Contents
 

@@ -1,4 +1,4 @@
-# Contributing to Agent Workflow Starter
+# Contributing to Agent Starter
 
 Thank you for your interest in contributing! This guide will help you get started with development and understand the project's contribution workflow.
 
@@ -26,8 +26,8 @@ Thank you for your interest in contributing! This guide will help you get starte
 
 1. **Fork and clone the repository**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/agent-workflow-starter.git
-   cd agent-workflow-starter
+   git clone https://github.com/thorchh/agent-starter.git
+   cd agent-starter
    ```
 
 2. **Install dependencies**
@@ -516,8 +516,9 @@ ls -la .chats/
 ### Getting Help
 
 - **Documentation**: See [README.md](./README.md), [ARCHITECTURE.md](./ARCHITECTURE.md), [DEPLOYMENT.md](./DEPLOYMENT.md)
-- **Issues**: [GitHub Issues](https://github.com/yourusername/agent-workflow-starter/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/agent-workflow-starter/discussions)
+- **Website**: [agentstarter.fyi](https://agentstarter.fyi)
+- **Issues**: [GitHub Issues](https://github.com/thorchh/agent-starter/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/thorchh/agent-starter/discussions)
 
 ## Code of Conduct
 

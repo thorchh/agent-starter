@@ -44,3 +44,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# internal documentation (not for public template)
+.github/NEXT_STEPS.md
+.github/IMAGE_PROMPTS.md
+.github/README.md

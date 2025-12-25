@@ -1,6 +1,6 @@
 # Production Deployment Guide
 
-This guide covers deploying the Agent Workflow Starter to production with proper persistence, blob storage, monitoring, and optimization.
+This guide covers deploying Agent Starter to production with proper persistence, blob storage, monitoring, and optimization.
 
 ## Table of Contents
 
@@ -26,7 +26,7 @@ git init
 git add .
 git commit -m "Initial commit"
 git branch -M main
-git remote add origin https://github.com/yourusername/your-repo.git
+git remote add origin https://github.com/thorchh/agent-starter.git
 git push -u origin main
 ```
 

@@ -1,0 +1,10 @@
+# This directory contains visual assets for the README
+# 
+# Required images:
+# - hero.png (1600x900)
+# - demo.gif (800px width)
+# - light-mode.png (2400x1600)
+# - dark-mode.png (2400x1600)
+# - mobile.png (430x932)
+#
+# See ../.github/IMAGE_PROMPTS.md for creation guide
