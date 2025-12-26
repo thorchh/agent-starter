@@ -10,7 +10,7 @@ import type { UIMessage } from "ai";
  * - Branches are simply multiple children under the same parent.
  */
 
-export const ROOT_PARENT_ID = null as const;
+export const ROOT_PARENT_ID: null = null;
 export const ROOT_PARENT_KEY = "__root__" as const;
 
 export type ParentId = string | null;

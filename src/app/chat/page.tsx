@@ -26,7 +26,7 @@ export default async function ChatPage() {
                 API Key Required
               </CardTitle>
               <CardDescription className="text-lg leading-relaxed">
-                To use the chat, you'll need to set up your own API keys locally.
+                To use the chat, you&apos;ll need to set up your own API keys locally.
               </CardDescription>
             </div>
 

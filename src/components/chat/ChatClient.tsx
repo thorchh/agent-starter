@@ -395,7 +395,7 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
             <ChatHeader
               canNewChat={canNewChat}
               className="px-0 py-0 flex-1"
-              subtitle="AI Elements UI • AI SDK streaming • Chat persistence"
+              subtitle=""
               title="Agent Starter"
             />
           </div>

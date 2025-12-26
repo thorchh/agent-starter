@@ -49,6 +49,7 @@ import {
   ROOT_PARENT_ID,
   withBranchingMetadata,
 } from "@/lib/chat/branching";
+import type { ExtendedUIMessage } from "@/lib/chat/message-types";
 
 // ============================================================================
 // CONFIGURATION
@@ -187,12 +188,12 @@ export async function POST(req: Request) {
               throw new Error("Append requires a user message");
             }
             const withId: UIMessage = { ...m, id: m.id || generateId(), role: "user" };
-            const withTimestamp: UIMessage = {
+            const withTimestamp: ExtendedUIMessage = {
               ...withId,
               timestamp:
                 (withId as UIMessage & { timestamp?: number }).timestamp || Date.now(),
             };
-            return withBranchingMetadata(withTimestamp, { parentId: attachParentId });
+            return withBranchingMetadata(withTimestamp, { parentId: attachParentId }) as ExtendedUIMessage;
           })()
         : null;
 
@@ -488,8 +489,8 @@ export async function POST(req: Request) {
         const triggerUserIdForAssistant = targetUserId;
         const storedIds = new Set(normalizedStoredMessages.map((m) => m.id));
 
-        let finishedWithMeta = finishedMessages.map((msg) => {
-          const base = {
+        let finishedWithMeta: ExtendedUIMessage[] = finishedMessages.map((msg) => {
+          const base: ExtendedUIMessage = {
             ...msg,
             id: msg.id || generateId(),
             timestamp: (msg as typeof msg & { timestamp?: number }).timestamp || Date.now(),
@@ -501,7 +502,7 @@ export async function POST(req: Request) {
             const withParent = withBranchingMetadata(base, {
               parentId: triggerUserIdForAssistant,
             });
-            return { ...withParent, model: requestedModel };
+            return { ...withParent, model: requestedModel } as ExtendedUIMessage;
           }
 
           // For append, the user message already has parentId set; for legacy messages
@@ -511,10 +512,10 @@ export async function POST(req: Request) {
 
         // Always include the append message in the persisted set (even if the stream omits it).
         if (userMessageForAppend) {
-          finishedWithMeta = mergeMessagesById([userMessageForAppend], finishedWithMeta);
+          finishedWithMeta = mergeMessagesById([userMessageForAppend], finishedWithMeta) as ExtendedUIMessage[];
         }
 
-        let messagesWithIds = mergeMessagesById(normalizedStoredMessages, finishedWithMeta);
+        let messagesWithIds = mergeMessagesById(normalizedStoredMessages, finishedWithMeta) as ExtendedUIMessage[];
 
         // Nano Banana Pro (Gemini image model) returns images in `result.files` as Uint8Array
         // (see Vercel docs). For persistence we normalize any image bytes into data URLs so

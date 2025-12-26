@@ -196,47 +196,140 @@ export default function Home() {
           {/* Bento Grid Layout */}
           <div className="grid grid-cols-1 md:grid-cols-6 lg:grid-cols-12 gap-4 lg:gap-6">
             {/* Large feature - Agentic Workflows */}
-            <Card className="group md:col-span-6 lg:col-span-7 lg:row-span-2 hover:border-primary/30 hover:shadow-xl transition-all duration-300 border-border/50 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm overflow-hidden">
-              <CardHeader className="h-full flex flex-col justify-between p-8">
+            <Card className="group md:col-span-6 lg:col-span-7 lg:row-span-2 hover:border-primary/40 hover:shadow-2xl transition-all duration-500 border bg-gradient-to-br from-card via-card to-muted/20 backdrop-blur-sm overflow-hidden relative">
+              {/* Decorative background */}
+              <div className="absolute inset-0 opacity-[0.03]">
+                <div className="absolute top-10 right-10 size-40 rounded-full bg-violet-500 blur-3xl" />
+                <div className="absolute bottom-10 left-10 size-32 rounded-full bg-blue-500 blur-3xl" />
+              </div>
+
+              <CardHeader className="h-full flex flex-col justify-between p-8 lg:p-10 relative">
                 <div>
-                  <div className="size-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center mb-6 shadow-lg">
-                    <Bot className="size-7 text-primary" />
+                  <div className="size-14 rounded-2xl bg-gradient-to-br from-violet-500/20 via-violet-500/10 to-transparent border border-violet-500/20 flex items-center justify-center mb-6 shadow-lg shadow-violet-500/5 group-hover:scale-105 group-hover:shadow-violet-500/10 transition-all duration-300">
+                    <Bot className="size-7 text-violet-400" />
                   </div>
-                  <CardTitle className="text-3xl font-bold mb-3">Agentic Workflows</CardTitle>
-                  <CardDescription className="text-lg leading-relaxed mb-4">
+                  <CardTitle className="text-3xl lg:text-4xl font-bold mb-4">Agentic Workflows</CardTitle>
+                  <CardDescription className="text-lg leading-relaxed mb-8">
                     Multi-step reasoning with tool execution, branching logic, and autonomous decision-making.
                     Build agents that think and act independently.
                   </CardDescription>
+
+                  {/* Tool execution flow */}
+                  <div className="space-y-3 mb-8">
+                    {/* Step 1: Agent thinks */}
+                    <div className="flex items-start gap-4 animate-in fade-in duration-500">
+                      <div className="size-10 rounded-xl bg-gradient-to-br from-purple-500/20 via-purple-500/10 to-transparent border border-purple-400/30 flex items-center justify-center shrink-0 shadow-lg shadow-purple-500/10">
+                        <Bot className="size-5 text-purple-300" />
+                      </div>
+                      <div className="flex-1 min-w-0 pt-1">
+                        <div className="text-xs font-bold text-purple-300 mb-2 tracking-wide">1. Agent Reasoning</div>
+                        <div className="text-[11px] text-muted-foreground/90 italic leading-relaxed bg-purple-500/5 rounded-lg px-3 py-2 border border-purple-500/10">
+                          &quot;I need to fetch weather data for San Francisco&quot;
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Arrow */}
+                    <div className="flex items-center gap-2 pl-6 py-1">
+                      <div className="size-1 rounded-full bg-gradient-to-b from-purple-400 to-blue-400" />
+                      <div className="h-px flex-1 bg-gradient-to-r from-purple-400/20 via-blue-400/20 to-blue-400/40" />
+                      <ArrowRight className="size-4 text-blue-400/60" />
+                    </div>
+
+                    {/* Step 2: Tool call */}
+                    <div className="flex items-start gap-4 animate-in fade-in duration-500 delay-200">
+                      <div className="size-10 rounded-xl bg-gradient-to-br from-blue-500/20 via-blue-500/10 to-transparent border border-blue-400/30 flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/10">
+                        <Zap className="size-5 text-blue-300" />
+                      </div>
+                      <div className="flex-1 min-w-0 pt-0.5">
+                        <div className="text-xs font-bold text-blue-300 mb-2.5 tracking-wide">2. Tool Execution</div>
+                        <div className="bg-gradient-to-br from-slate-900/95 to-slate-950/95 rounded-xl p-3.5 border border-slate-700/60 font-mono text-[11px] shadow-xl shadow-black/20">
+                          <div className="text-slate-400 mb-1.5">getWeather()</div>
+                          <div className="text-slate-500 pl-4">
+                            {"{"} <span className="text-slate-300">location:</span> <span className="text-sky-400 font-semibold">&quot;San Francisco&quot;</span> {"}"}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Arrow */}
+                    <div className="flex items-center gap-2 pl-6 py-1">
+                      <div className="size-1 rounded-full bg-gradient-to-b from-blue-400 to-emerald-400" />
+                      <div className="h-px flex-1 bg-gradient-to-r from-blue-400/40 via-emerald-400/20 to-emerald-400/20" />
+                      <ArrowRight className="size-4 text-emerald-400/60" />
+                    </div>
+
+                    {/* Step 3: Result */}
+                    <div className="flex items-start gap-4 animate-in fade-in duration-500 delay-400">
+                      <div className="size-10 rounded-xl bg-gradient-to-br from-emerald-500/20 via-emerald-500/10 to-transparent border border-emerald-400/30 flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/10">
+                        <Sparkles className="size-5 text-emerald-300" />
+                      </div>
+                      <div className="flex-1 min-w-0 pt-0.5">
+                        <div className="text-xs font-bold text-emerald-300 mb-2.5 tracking-wide">3. Response Generated</div>
+                        <div className="bg-gradient-to-br from-emerald-500/15 via-emerald-500/10 to-emerald-500/5 rounded-xl p-3.5 border border-emerald-400/25 shadow-md shadow-emerald-500/5">
+                          <div className="text-[11px] text-foreground/95 font-medium leading-relaxed">
+                            <span className="text-emerald-300">✓</span> Temperature: 72°F<br/>
+                            <span className="text-emerald-300">✓</span> Conditions: Sunny<br/>
+                            <span className="text-emerald-300">✓</span> Humidity: 45%
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="flex flex-wrap gap-2">
-                    <Badge variant="secondary" className="text-xs">Multi-step</Badge>
-                    <Badge variant="secondary" className="text-xs">Tool calling</Badge>
-                    <Badge variant="secondary" className="text-xs">Autonomous</Badge>
+                    <Badge variant="secondary" className="text-xs bg-muted/60 hover:bg-muted/80 border-0">Multi-step</Badge>
+                    <Badge variant="secondary" className="text-xs bg-muted/60 hover:bg-muted/80 border-0">Tool calling</Badge>
+                    <Badge variant="secondary" className="text-xs bg-muted/60 hover:bg-muted/80 border-0">Autonomous</Badge>
                   </div>
                 </div>
               </CardHeader>
             </Card>
 
             {/* Tall feature - Pre-built UI */}
-            <Card className="group md:col-span-3 lg:col-span-5 lg:row-span-2 hover:border-primary/30 hover:shadow-xl transition-all duration-300 border-border/50 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
-              <CardHeader className="h-full p-8">
-                <div className="size-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center mb-6 shadow-lg">
-                  <Blocks className="size-7 text-primary" />
+            <Card className="group md:col-span-3 lg:col-span-5 lg:row-span-2 hover:border-primary/40 hover:shadow-2xl transition-all duration-500 border bg-gradient-to-br from-card via-card to-muted/20 backdrop-blur-sm overflow-hidden relative">
+              <CardHeader className="h-full p-8 lg:p-10 relative">
+                <div className="size-14 rounded-2xl bg-gradient-to-br from-blue-500/20 via-blue-500/10 to-transparent border border-blue-500/20 flex items-center justify-center mb-6 shadow-lg shadow-blue-500/5 group-hover:scale-105 group-hover:shadow-blue-500/10 transition-all duration-300">
+                  <Blocks className="size-7 text-blue-400" />
                 </div>
-                <CardTitle className="text-2xl font-bold mb-3">Pre-built UI Components</CardTitle>
+                <CardTitle className="text-2xl lg:text-3xl font-bold mb-3">Pre-built UI Components</CardTitle>
                 <CardDescription className="text-base leading-relaxed mb-6">
                   Polished chat interface, message bubbles, typing indicators, and tool execution visualizations - ready to use.
                 </CardDescription>
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <div className="size-1.5 rounded-full bg-primary" />
-                    <span>Chat UI with streaming</span>
+
+                {/* Mini chat mockup */}
+                <div className="space-y-3 mb-8">
+                  <div className="flex gap-2 animate-in slide-in-from-left-4 duration-500">
+                    <div className="flex-1 bg-gradient-to-br from-muted/50 to-muted/70 rounded-2xl rounded-bl-sm p-4 border border-border/50 shadow-md shadow-black/5">
+                      <div className="h-2 bg-foreground/20 rounded-full w-3/4 mb-2.5" />
+                      <div className="h-2 bg-foreground/15 rounded-full w-1/2" />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="size-1.5 rounded-full bg-primary" />
-                    <span>Message attachments</span>
+                  <div className="flex gap-2 justify-end animate-in slide-in-from-right-4 duration-500 delay-200">
+                    <div className="flex-1 max-w-[85%] bg-gradient-to-br from-blue-500/15 to-blue-500/20 rounded-2xl rounded-br-sm p-4 border border-blue-500/30 shadow-md shadow-blue-500/5">
+                      <div className="h-2 bg-blue-400/50 rounded-full w-2/3" />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="size-1.5 rounded-full bg-primary" />
+                  <div className="flex gap-2 animate-in slide-in-from-left-4 duration-500 delay-400">
+                    <div className="flex items-center gap-1.5 px-4 py-3 bg-gradient-to-br from-muted/50 to-muted/70 rounded-2xl rounded-bl-sm border border-border/50 shadow-md shadow-black/5">
+                      <div className="size-1.5 rounded-full bg-foreground/40 animate-bounce" />
+                      <div className="size-1.5 rounded-full bg-foreground/40 animate-bounce animation-delay-200" />
+                      <div className="size-1.5 rounded-full bg-foreground/40 animate-bounce animation-delay-400" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2.5 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2.5">
+                    <div className="size-1.5 rounded-full bg-blue-400 shadow-sm shadow-blue-400/50" />
+                    <span>Streaming responses</span>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <div className="size-1.5 rounded-full bg-blue-400 shadow-sm shadow-blue-400/50" />
+                    <span>File attachments</span>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <div className="size-1.5 rounded-full bg-blue-400 shadow-sm shadow-blue-400/50" />
                     <span>Citations & sources</span>
                   </div>
                 </div>
@@ -244,41 +337,158 @@ export default function Home() {
             </Card>
 
             {/* Medium feature - Streaming */}
-            <Card className="group md:col-span-3 lg:col-span-4 hover:border-primary/30 hover:shadow-xl transition-all duration-300 border-border/50 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
-              <CardHeader className="p-6">
-                <div className="size-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center mb-4 shadow-lg">
-                  <Zap className="size-6 text-primary" />
+            <Card className="group md:col-span-3 lg:col-span-4 hover:border-primary/40 hover:shadow-2xl transition-all duration-500 border bg-gradient-to-br from-card via-card to-muted/20 backdrop-blur-sm overflow-hidden relative">
+              <CardHeader className="p-7 lg:p-8 relative">
+                <div className="size-12 rounded-xl bg-gradient-to-br from-amber-500/20 via-amber-500/10 to-transparent border border-amber-500/20 flex items-center justify-center mb-5 shadow-lg shadow-amber-500/5 group-hover:scale-105 group-hover:shadow-amber-500/10 transition-all duration-300">
+                  <Zap className="size-6 text-amber-400" />
                 </div>
-                <CardTitle className="text-xl font-bold mb-2">Real-time Streaming</CardTitle>
-                <CardDescription className="text-base leading-relaxed">
-                  Lightning-fast responses with Vercel AI SDK streaming
+                <CardTitle className="text-xl lg:text-2xl font-bold mb-2.5">Real-time Streaming</CardTitle>
+                <CardDescription className="text-base leading-relaxed mb-6">
+                  Tokens stream instantly as they&apos;re generated
                 </CardDescription>
+
+                {/* Streaming visualization */}
+                <div className="space-y-4">
+                  {/* Without streaming */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <div className="text-[9px] font-bold text-muted-foreground/70 uppercase tracking-wider">Without Streaming</div>
+                    </div>
+                    <div className="bg-gradient-to-br from-muted/30 to-muted/50 rounded-xl p-4 border border-border/40 relative overflow-hidden shadow-sm">
+                      <div className="h-14 flex items-center">
+                        <div className="flex items-center gap-2">
+                          <div className="size-2 rounded-full bg-muted-foreground/40 animate-bounce" />
+                          <div className="size-2 rounded-full bg-muted-foreground/40 animate-bounce animation-delay-200" />
+                          <div className="size-2 rounded-full bg-muted-foreground/40 animate-bounce animation-delay-400" />
+                        </div>
+                      </div>
+                      <div className="absolute top-3 right-3 text-[10px] font-mono text-orange-500 font-bold bg-orange-500/10 px-2.5 py-1 rounded-lg border border-orange-500/25">~3s wait</div>
+                    </div>
+                  </div>
+
+                  {/* With streaming */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <div className="text-[9px] font-bold text-green-500 uppercase tracking-wider">With Streaming</div>
+                      <Sparkles className="size-3 text-green-400" />
+                    </div>
+                    <div className="bg-gradient-to-br from-green-500/12 via-green-500/8 to-green-500/5 rounded-xl p-4 border border-green-500/35 shadow-lg shadow-green-500/10 relative">
+                      <div className="text-[11px] text-foreground/95 leading-relaxed space-y-1">
+                        <div className="animate-in fade-in duration-200">The weather in</div>
+                        <div className="animate-in fade-in duration-200 delay-100">San Francisco is</div>
+                        <div className="flex items-center gap-1.5 animate-in fade-in duration-200 delay-200">
+                          <span className="font-semibold text-foreground">72°F and sunny</span>
+                          <div className="size-1.5 bg-green-400 animate-pulse rounded-sm shadow-sm shadow-green-400/50" />
+                        </div>
+                      </div>
+                      <div className="absolute top-3 right-3 text-[10px] font-mono text-green-500 font-bold bg-green-500/15 px-2.5 py-1 rounded-lg border border-green-500/35">~50ms</div>
+                    </div>
+                  </div>
+                </div>
               </CardHeader>
             </Card>
 
             {/* Medium feature - TypeScript */}
-            <Card className="group md:col-span-3 lg:col-span-4 hover:border-primary/30 hover:shadow-xl transition-all duration-300 border-border/50 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
-              <CardHeader className="p-6">
-                <div className="size-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center mb-4 shadow-lg">
-                  <Code2 className="size-6 text-primary" />
+            <Card className="group md:col-span-3 lg:col-span-4 hover:border-primary/40 hover:shadow-2xl transition-all duration-500 border bg-gradient-to-br from-card via-card to-muted/20 backdrop-blur-sm overflow-hidden relative">
+              <CardHeader className="p-7 lg:p-8 relative">
+                <div className="size-12 rounded-xl bg-gradient-to-br from-indigo-500/20 via-indigo-500/10 to-transparent border border-indigo-500/20 flex items-center justify-center mb-5 shadow-lg shadow-indigo-500/5 group-hover:scale-105 group-hover:shadow-indigo-500/10 transition-all duration-300">
+                  <Code2 className="size-6 text-indigo-400" />
                 </div>
-                <CardTitle className="text-xl font-bold mb-2">Type-safe</CardTitle>
-                <CardDescription className="text-base leading-relaxed">
-                  Full TypeScript with Zod validation and type inference
+                <CardTitle className="text-xl lg:text-2xl font-bold mb-2.5">Type-safe</CardTitle>
+                <CardDescription className="text-base leading-relaxed mb-5">
+                  Catch errors before runtime with full type inference
                 </CardDescription>
+
+                {/* Before/After comparison */}
+                <div className="space-y-3">
+                  {/* Error example */}
+                  <div className="bg-gradient-to-br from-red-500/10 to-red-500/5 rounded-xl p-3.5 border border-red-500/30 shadow-md shadow-red-500/5 animate-in fade-in duration-300">
+                    <div className="flex items-start gap-2.5">
+                      <div className="size-5 rounded-lg bg-red-500/20 border border-red-500/40 flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="text-red-400 text-[11px] font-bold">✕</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[11px] font-mono text-foreground/90 mb-1.5">location: <span className="text-red-400 underline decoration-wavy decoration-red-400/70 underline-offset-2 font-semibold">123</span></div>
+                        <div className="text-[10px] text-red-400 leading-relaxed font-medium">Type &apos;number&apos; not assignable to &apos;string&apos;</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Success example */}
+                  <div className="bg-gradient-to-br from-green-500/10 to-green-500/5 rounded-xl p-3.5 border border-green-500/30 shadow-md shadow-green-500/5 animate-in fade-in duration-300 delay-200">
+                    <div className="flex items-start gap-2.5">
+                      <div className="size-5 rounded-lg bg-green-500/20 border border-green-500/40 flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="text-green-400 text-[11px] font-bold">✓</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[11px] font-mono text-foreground/90 mb-1.5">location: <span className="text-green-400 font-semibold">&quot;San Francisco&quot;</span></div>
+                        <div className="text-[10px] text-green-400 leading-relaxed font-medium">Valid ✓ Auto-completed ✓ IntelliSense ✓</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Type inference indicator */}
+                  <div className="flex items-center justify-center gap-3 pt-3">
+                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border/40 to-transparent" />
+                    <span className="text-[9px] text-muted-foreground/80 font-semibold px-2 tracking-wide">Powered by Zod + TypeScript</span>
+                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border/40 to-transparent" />
+                  </div>
+                </div>
               </CardHeader>
             </Card>
 
             {/* Wide feature - Multi-Model */}
-            <Card className="group md:col-span-6 lg:col-span-4 hover:border-primary/30 hover:shadow-xl transition-all duration-300 border-border/50 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
-              <CardHeader className="p-6">
-                <div className="size-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center mb-4 shadow-lg">
-                  <Cpu className="size-6 text-primary" />
+            <Card className="group md:col-span-6 lg:col-span-4 hover:border-primary/40 hover:shadow-2xl transition-all duration-500 border bg-gradient-to-br from-card via-card to-muted/20 backdrop-blur-sm overflow-hidden relative">
+              <CardHeader className="p-7 lg:p-8 relative">
+                <div className="size-12 rounded-xl bg-gradient-to-br from-cyan-500/20 via-cyan-500/10 to-transparent border border-cyan-500/20 flex items-center justify-center mb-5 shadow-lg shadow-cyan-500/5 group-hover:scale-105 group-hover:shadow-cyan-500/10 transition-all duration-300">
+                  <Cpu className="size-6 text-cyan-400" />
                 </div>
-                <CardTitle className="text-xl font-bold mb-2">Multi-Model Support</CardTitle>
-                <CardDescription className="text-base leading-relaxed">
-                  Switch between OpenAI, Groq, Anthropic, and AI Gateway with one line of code
+                <CardTitle className="text-xl lg:text-2xl font-bold mb-2.5">Multi-Model Support</CardTitle>
+                <CardDescription className="text-base leading-relaxed mb-5">
+                  Switch between providers with one line of code
                 </CardDescription>
+
+                {/* Code mockup showing model switching */}
+                <div className="bg-gradient-to-br from-slate-900/80 to-slate-950/80 rounded-xl p-4 font-mono text-[11px] border border-slate-700/50 mb-5 shadow-lg shadow-black/10">
+                  <div className="text-slate-400 mb-2.5">AI_MODEL=<span className="text-emerald-400 font-semibold">openai/gpt-5</span></div>
+                  <div className="h-px bg-slate-700/40 my-2.5" />
+                  <div className="flex items-center gap-2.5 text-slate-500">
+                    <div className="size-1.5 rounded-full bg-emerald-400 animate-pulse shadow-sm shadow-emerald-400/50" />
+                    <span className="text-[10px]">Switch providers instantly</span>
+                  </div>
+                </div>
+
+                {/* Provider logos grid */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex items-center gap-3 px-3.5 py-3 rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/25 shadow-sm hover:shadow-md hover:border-emerald-500/40 transition-all duration-300 animate-in fade-in">
+                    <div className="size-6 shrink-0 flex items-center justify-center">
+                      <svg role="img" viewBox="0 0 24 24" className="w-full h-full" xmlns="http://www.w3.org/2000/svg" style={{ fill: "#10A37F" }}>
+                        <path d={openaiIcon.path} />
+                      </svg>
+                    </div>
+                    <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300">OpenAI</span>
+                  </div>
+                  <div className="flex items-center gap-3 px-3.5 py-3 rounded-xl bg-gradient-to-br from-orange-500/10 to-orange-500/5 border border-orange-500/25 shadow-sm hover:shadow-md hover:border-orange-500/40 transition-all duration-300 animate-in fade-in delay-75">
+                    <div className="size-6 shrink-0 flex items-center justify-center rounded-lg bg-orange-500/20 border border-orange-500/30">
+                      <span className="text-[11px] font-black text-orange-600 dark:text-orange-400">G</span>
+                    </div>
+                    <span className="text-[11px] font-bold text-orange-700 dark:text-orange-300">Groq</span>
+                  </div>
+                  <div className="flex items-center gap-3 px-3.5 py-3 rounded-xl bg-gradient-to-br from-purple-500/10 to-purple-500/5 border border-purple-500/25 shadow-sm hover:shadow-md hover:border-purple-500/40 transition-all duration-300 animate-in fade-in delay-150">
+                    <div className="size-6 shrink-0 flex items-center justify-center rounded-lg bg-purple-500/20 border border-purple-500/30">
+                      <span className="text-[11px] font-black text-purple-600 dark:text-purple-400">A</span>
+                    </div>
+                    <span className="text-[11px] font-bold text-purple-700 dark:text-purple-300">Anthropic</span>
+                  </div>
+                  <div className="flex items-center gap-3 px-3.5 py-3 rounded-xl bg-gradient-to-br from-slate-500/10 to-slate-500/5 border border-slate-500/25 shadow-sm hover:shadow-md hover:border-slate-500/40 transition-all duration-300 animate-in fade-in delay-200">
+                    <div className="size-6 shrink-0 flex items-center justify-center">
+                      <svg role="img" viewBox="0 0 24 24" className="w-full h-full dark:invert" xmlns="http://www.w3.org/2000/svg" style={{ fill: "#000000" }}>
+                        <path d={siVercel.path} />
+                      </svg>
+                    </div>
+                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Gateway</span>
+                  </div>
+                </div>
               </CardHeader>
             </Card>
           </div>
@@ -298,7 +508,7 @@ export default function Home() {
               </h2>
               <p className="text-muted-foreground text-lg md:text-xl leading-relaxed">
                 Extend your agent with custom tools using a simple, type-safe API.
-                Define your tool schema with Zod and implement the handler - that's it.
+                Define your tool schema with Zod and implement the handler - that&apos;s it.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 pt-4">
                 <Button asChild size="lg">
@@ -327,11 +537,11 @@ export default function Home() {
                 <pre className="text-sm overflow-x-auto font-mono leading-relaxed [&_*::selection]:bg-[#388bfd] [&_*::selection]:text-white">
                   <code className="text-[#c9d1d9] select-text">
                     <span className="text-[#ff7b72]">export</span> <span className="text-[#ff7b72]">const</span> <span className="text-[#d2a8ff]">weatherTool</span> <span className="text-[#ff7b72]">=</span> {"{"}{"\n"}
-                    {"  "}<span className="text-[#79c0ff]">name</span>: <span className="text-[#a5d6ff]">'getWeather'</span>,{"\n"}
-                    {"  "}<span className="text-[#79c0ff]">description</span>: <span className="text-[#a5d6ff]">'Get weather for a location'</span>,{"\n"}
+                    {"  "}<span className="text-[#79c0ff]">name</span>: <span className="text-[#a5d6ff]">&apos;getWeather&apos;</span>,{"\n"}
+                    {"  "}<span className="text-[#79c0ff]">description</span>: <span className="text-[#a5d6ff]">&apos;Get weather for a location&apos;</span>,{"\n"}
                     {"  "}<span className="text-[#79c0ff]">parameters</span>: <span className="text-[#d2a8ff]">z</span>.<span className="text-[#d2a8ff]">object</span>({"{"}{"\n"}
                     {"    "}<span className="text-[#79c0ff]">location</span>: <span className="text-[#d2a8ff]">z</span>.<span className="text-[#d2a8ff]">string</span>(){"\n"}
-                    {"      "}.<span className="text-[#d2a8ff]">describe</span>(<span className="text-[#a5d6ff]">'City name'</span>),{"\n"}
+                    {"      "}.<span className="text-[#d2a8ff]">describe</span>(<span className="text-[#a5d6ff]">&apos;City name&apos;</span>),{"\n"}
                     {"  "}{"}"}{"),,"}{"\n"}
                     {"  "}<span className="text-[#79c0ff]">execute</span>: <span className="text-[#ff7b72]">async</span> ({"{"} <span className="text-[#ffa657]">location</span> {"}"}) <span className="text-[#ff7b72]">=&gt;</span> {"{"}{"\n"}
                     {"    "}<span className="text-[#ff7b72]">const</span> <span className="text-[#79c0ff]">weather</span> <span className="text-[#ff7b72]">=</span> <span className="text-[#ff7b72]">await</span> <span className="text-[#d2a8ff]">fetchWeather</span>(<span className="text-[#ffa657]">location</span>);{"\n"}

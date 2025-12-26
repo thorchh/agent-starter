@@ -167,6 +167,49 @@
     @apply bg-background text-foreground antialiased selection:bg-primary/20 selection:text-primary;
   }
 
+  /* Inline code (not in pre blocks) - for simple code mentions */
+  :not(pre) > code {
+    @apply bg-muted px-1.5 py-0.5 rounded text-sm font-semibold text-foreground;
+  }
+
+  .dark :not(pre) > code {
+    @apply bg-muted/80;
+  }
+
+  /* Code blocks - minimal styling, let Shiki handle colors */
+  pre {
+    @apply rounded-lg overflow-x-auto;
+  }
+
+  pre code {
+    @apply font-mono;
+    /* Don't set any color - let Shiki's inline styles work */
+  }
+
+  /* Ensure Shiki spans with inline colors aren't overridden */
+  pre code span,
+  pre span {
+    /* Inline color styles from Shiki will apply */
+  }
+
+  /* Do not set code colors here.
+     Streamdown/Shiki sets `pre` foreground color and token colors; overriding here
+     can break dark-mode contrast. */
+
+  /* Streamdown code blocks (chat) use Shiki CSS variables for dual themes:
+     - token spans include `--shiki-dark` / `--shiki-dark-bg` in inline styles
+     - in dark mode we must apply those variables; otherwise light-theme colors
+       can render too dark on a dark background. */
+  .dark [data-streamdown="code-block-body"] {
+    background-color: var(--shiki-dark-bg, oklch(0.141 0.005 285.823)) !important;
+    color: var(--shiki-dark, oklch(0.985 0 0)) !important;
+  }
+
+  .dark [data-streamdown="code-block-body"] span {
+    background-color: var(--shiki-dark-bg, transparent) !important;
+    color: var(--shiki-dark, inherit) !important;
+  }
+
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;

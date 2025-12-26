@@ -30,7 +30,7 @@ export default async function ChatIdPage(props: {
                 API Key Required
               </CardTitle>
               <CardDescription className="text-lg leading-relaxed">
-                To use the chat, you'll need to set up your own API keys locally.
+                To use the chat, you&apos;ll need to set up your own API keys locally.
               </CardDescription>
             </div>
 
