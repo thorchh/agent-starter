@@ -28,6 +28,7 @@
 
 import {
   convertToModelMessages,
+  createIdGenerator,
   generateId,
   stepCountIs,
   streamText,
@@ -91,6 +92,12 @@ type ChatRequestBody = {
 
   /** Whether to enable web search (OpenAI built-in) */
   useSearch?: boolean;
+
+  /**
+   * Optional client-visible path for fallback when the server hasn't persisted
+   * the latest branch yet (e.g., fast follow-up messages).
+   */
+  history?: UIMessage[];
 
   /**
    * In append mode: the parent message id (assistant) that this user message should attach to.
@@ -171,6 +178,15 @@ export async function POST(req: Request) {
       return withBranchingMetadata(m, { parentId: inferredParentId });
     });
 
+    const clientHistory = Array.isArray(body.history) ? body.history : [];
+    const normalizedClientMessages: UIMessage[] = clientHistory.map((m, i) => {
+      const hasParent = getParentId(m) !== undefined;
+      if (hasParent) return m;
+      const inferredParentId: string | null =
+        i === 0 ? ROOT_PARENT_ID : clientHistory[i - 1]?.id ?? ROOT_PARENT_ID;
+      return withBranchingMetadata(m, { parentId: inferredParentId });
+    });
+
     const attachParentId =
       typeof body.parentId === "string"
         ? body.parentId
@@ -211,8 +227,22 @@ export async function POST(req: Request) {
 
     // Build a prompt path by walking parent pointers from the target user message
     // back to the root, then reversing.
+    const storedIds = new Set(normalizedStoredMessages.map((m) => m.id));
+    const shouldUseClientHistory =
+      normalizedClientMessages.length > 0 &&
+      ((mode === "append" &&
+        typeof attachParentId === "string" &&
+        !storedIds.has(attachParentId)) ||
+        (mode === "regenerate" &&
+          typeof targetUserId === "string" &&
+          !storedIds.has(targetUserId)));
+
+    const historyForPrompt = shouldUseClientHistory
+      ? mergeMessagesById(normalizedStoredMessages, normalizedClientMessages)
+      : normalizedStoredMessages;
+
     const messageById = new Map<string, UIMessage>();
-    for (const m of normalizedStoredMessages) messageById.set(m.id, m);
+    for (const m of historyForPrompt) messageById.set(m.id, m);
     if (userMessageForAppend) messageById.set(userMessageForAppend.id, userMessageForAppend);
 
     const buildPathEndingAt = (leafId: string): UIMessage[] => {
@@ -407,13 +437,7 @@ export async function POST(req: Request) {
     const system =
       SYSTEM_PROMPT +
       (useSearch && canUseOpenAIWebSearch
-        ? "\n\nIMPORTANT - Search and Citations:\n" +
-          "- Search is enabled. Use the `web_search` tool when helpful.\n" +
-          "- When citing sources, use ONLY numbered markers [1], [2], [3] inline with your text.\n" +
-          "- Do NOT add source names, domains, or URLs anywhere in your response text (e.g., do not write '(reuters.com)', '(source.com)', or similar).\n" +
-          "- Do NOT create a 'Sources:' list or section at the end of your response.\n" +
-          "- The numbered markers [1], [2] will automatically render as interactive citation badges with full source information.\n" +
-          "- Write naturally and concisely - just add the [1], [2] markers where claims need citations."
+        ? "\n\nWeb search is enabled. Use the web_search tool when you need current information or real-time data."
         : "");
 
     // ──────────────────────────────────────────────────────────────────────
@@ -477,6 +501,9 @@ export async function POST(req: Request) {
 
       // Original messages for diff detection
       originalMessages: validatedPromptPath,
+
+      // Generate stable server-side IDs for persistence
+      generateMessageId: createIdGenerator({ prefix: "msg", size: 16 }),
 
       // Save chat when stream completes
       onFinish: async ({ messages: finishedMessages }) => {
@@ -614,5 +641,3 @@ export async function POST(req: Request) {
     return Response.json({ error: message }, { status: 500 });
   }
 }
-
-

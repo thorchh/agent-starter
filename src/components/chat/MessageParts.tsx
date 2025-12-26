@@ -525,25 +525,6 @@ export function MessageParts({
 
   return (
     <div className={cn("w-full", className)} {...props}>
-      {message.role === "assistant" && uniqueSourcesForHeader.length > 0 && (
-        <Sources>
-          <SourcesTrigger count={uniqueSourcesForHeader.length} />
-          {uniqueSourcesForHeader.map((part, i) => (
-            <SourcesContent key={`${message.id}-source-${i}`}>
-              {"url" in part ? (
-                <Source href={part.url} title={part.title ?? part.url} />
-              ) : (
-                // `source-document` does not have an href; we display the title.
-                (<Source
-                  href="#"
-                  title={part.title}
-                  onClick={(e) => e.preventDefault()}
-                />)
-              )}
-            </SourcesContent>
-          ))}
-        </Sources>
-      )}
       {message.parts.map((part: Part, i) => {
         switch (part.type) {
           case "text": {
@@ -1091,12 +1072,31 @@ export function MessageParts({
               );
             }
 
-            // source-* parts are rendered in the Sources header above
+            // source-* parts are rendered in the Sources footer below
             // unknown part types are ignored for now.
             return null;
           }
         }
       })}
+      {message.role === "assistant" && uniqueSourcesForHeader.length > 0 && (
+        <Sources>
+          <SourcesTrigger count={uniqueSourcesForHeader.length} />
+          {uniqueSourcesForHeader.map((part, i) => (
+            <SourcesContent key={`${message.id}-source-${i}`}>
+              {"url" in part ? (
+                <Source href={part.url} title={part.title ?? part.url} />
+              ) : (
+                // `source-document` does not have an href; we display the title.
+                (<Source
+                  href="#"
+                  title={part.title}
+                  onClick={(e) => e.preventDefault()}
+                />)
+              )}
+            </SourcesContent>
+          ))}
+        </Sources>
+      )}
     </div>
   );
 }

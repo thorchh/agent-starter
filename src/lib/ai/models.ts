@@ -38,6 +38,9 @@ export type ModelOption = {
    * The server normalizes these IDs before passing to providers.
    */
   id: string;
+
+  /** Provider name for logo display (openai, google, groq, etc.) */
+  provider: "openai" | "google" | "groq" | "moonshot" | "qwen" | "meta";
 };
 
 // ============================================================================
@@ -59,28 +62,27 @@ export const MODEL_OPTIONS: ModelOption[] = [
   // ──────────────────────────────────────────────────────────────────────
   // OPENAI MODELS
   // ──────────────────────────────────────────────────────────────────────
-  { label: "GPT-5 (default)", id: "openai/gpt-5" },
-  { label: "GPT-4o", id: "openai/gpt-4o" },
-  { label: "o4-mini", id: "openai/o4-mini" },
+  { label: "GPT-5 (default)", id: "openai/gpt-5", provider: "openai" },
+  { label: "GPT-4o", id: "openai/gpt-4o", provider: "openai" },
+  { label: "o4-mini", id: "openai/o4-mini", provider: "openai" },
 
   // ──────────────────────────────────────────────────────────────────────
   // AI GATEWAY MODELS
   // ──────────────────────────────────────────────────────────────────────
   // Vercel AI Gateway provides unified access to multiple providers.
   // Requires AI_GATEWAY_API_KEY environment variable.
-  { label: "GPT-5 (AI Gateway)", id: "gateway/openai/gpt-5" },
-  { label: "DeepSeek R1 (AI Gateway)", id: "gateway/deepseek-r1" },
-  { label: "Gemini 2.5 Pro (AI Gateway)", id: "gateway/google/gemini-2.5-pro" },
-  { label: "Nano Banana Pro (AI Gateway)", id: "gateway/google/gemini-3-pro-image" },
+  { label: "GPT-5 (AI Gateway)", id: "gateway/openai/gpt-5", provider: "openai" },
+  { label: "Gemini 2.5 Pro (AI Gateway)", id: "gateway/google/gemini-2.5-pro", provider: "google" },
+  { label: "Nano Banana Pro (AI Gateway)", id: "gateway/google/gemini-3-pro-image", provider: "google" },
 
   // ──────────────────────────────────────────────────────────────────────
   // GROQ MODELS
   // ──────────────────────────────────────────────────────────────────────
   // Groq provides fast inference for open-source models.
   // Requires GROQ_API_KEY environment variable.
-  { label: "Kimi K2 (Groq)", id: "groq/moonshotai/kimi-k2-instruct-0905" },
-  { label: "Qwen 3 32B (Groq)", id: "groq/qwen/qwen3-32b" },
-  { label: "Llama 3.3 70B (Groq)", id: "groq/llama-3.3-70b-versatile" },
+  { label: "Kimi K2 (Groq)", id: "groq/moonshotai/kimi-k2-instruct-0905", provider: "moonshot" },
+  { label: "Qwen 3 32B (Groq)", id: "groq/qwen/qwen3-32b", provider: "qwen" },
+  { label: "Llama 3.3 70B (Groq)", id: "groq/llama-3.3-70b-versatile", provider: "meta" },
 
   // ──────────────────────────────────────────────────────────────────────
   // ADD NEW MODELS HERE

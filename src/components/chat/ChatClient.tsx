@@ -60,6 +60,7 @@ import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { MessageParts } from "@/components/chat/MessageParts";
 import { BugIcon, CopyIcon, PencilIcon, SearchIcon, MenuIcon, Sparkles } from "lucide-react";
 import { MODEL_OPTIONS } from "@/lib/ai/models";
+import { OpenAI, Google, Groq, Moonshot, Qwen, Meta } from "@lobehub/icons";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -146,6 +147,7 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
           useSearch?: boolean;
           mode?: "append" | "regenerate";
           parentId?: string | null;
+          history?: UIMessage[];
         };
         return {
           body: {
@@ -155,6 +157,7 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
             useSearch: extra.useSearch,
             mode: extra.mode,
             parentId: extra.parentId,
+            history: extra.history,
           },
         };
       },
@@ -322,7 +325,7 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
       setMessages(visibleMessages);
 
       await sendMessage(outgoing, {
-        body: { model, useSearch, mode: "append", parentId },
+        body: { model, useSearch, mode: "append", parentId, history: visibleMessages },
       });
     } catch (e) {
       console.error("[ChatClient] sendMessage failed:", e);
@@ -367,7 +370,7 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
 
     try {
       await sendMessage(edited, {
-        body: { model, useSearch, mode: "append", parentId },
+        body: { model, useSearch, mode: "append", parentId, history: visibleMessages },
       });
     } catch (e) {
       console.error("[ChatClient] edit sendMessage failed:", e);
@@ -392,7 +395,7 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
       const parentId = getParentId(lastMessage) ?? ROOT_PARENT_ID;
       setMessages(visibleMessages);
       sendMessage(lastMessage, {
-        body: { model, useSearch, mode: "append", parentId },
+        body: { model, useSearch, mode: "append", parentId, history: visibleMessages },
       }).catch((e) => {
         setError(e instanceof Error ? e.message : "Failed to retry message");
       });
@@ -416,6 +419,7 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
             useSearch,
             mode: "regenerate",
             parentId: retryParentUserId,
+            history: visibleMessages,
           },
         });
       }
@@ -553,6 +557,7 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
                                       useSearch,
                                       mode: "regenerate",
                                       parentId: retryParentUserId,
+                                      history: visibleMessages,
                                     },
                                   });
                                 }
@@ -728,11 +733,25 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
                       <PromptInputSelectValue />
                     </PromptInputSelectTrigger>
                     <PromptInputSelectContent>
-                      {MODEL_OPTIONS.map((m) => (
-                        <PromptInputSelectItem key={m.id} value={m.id}>
-                          {m.label}
-                        </PromptInputSelectItem>
-                      ))}
+                      {MODEL_OPTIONS.map((m) => {
+                        const ProviderIcon =
+                          m.provider === "openai" ? OpenAI :
+                          m.provider === "google" ? Google :
+                          m.provider === "groq" ? Groq :
+                          m.provider === "moonshot" ? Moonshot :
+                          m.provider === "qwen" ? Qwen :
+                          m.provider === "meta" ? Meta :
+                          null;
+
+                        return (
+                          <PromptInputSelectItem key={m.id} value={m.id}>
+                            <div className="flex items-center gap-2">
+                              {ProviderIcon && <ProviderIcon size={16} />}
+                              <span>{m.label}</span>
+                            </div>
+                          </PromptInputSelectItem>
+                        );
+                      })}
                     </PromptInputSelectContent>
                   </PromptInputSelect>
 
@@ -795,5 +814,4 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
     </div>
   );
 }
-
 

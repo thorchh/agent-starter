@@ -1409,6 +1409,7 @@ export const PromptInputSelectTrigger = ({
     className={cn(
       "border-none bg-transparent font-medium text-muted-foreground shadow-none transition-colors",
       "hover:bg-accent hover:text-foreground aria-expanded:bg-accent aria-expanded:text-foreground",
+      "focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0",
       className
     )}
     {...props}
