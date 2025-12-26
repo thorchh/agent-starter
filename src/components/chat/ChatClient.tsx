@@ -61,6 +61,7 @@ import { MessageParts } from "@/components/chat/MessageParts";
 import { BugIcon, CopyIcon, PencilIcon, SearchIcon, MenuIcon, Sparkles } from "lucide-react";
 import { MODEL_OPTIONS } from "@/lib/ai/models";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import {
@@ -228,6 +229,21 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [router]);
 
+  // Clean up empty chats when navigating away
+  useEffect(() => {
+    const chatId = props.id;
+    const wasInitiallyEmpty = props.initialMessages.length === 0;
+
+    return () => {
+      // If chat was empty when we loaded it and is still empty when we leave, delete it
+      if (wasInitiallyEmpty && allMessages.length === 0) {
+        fetch(`/api/chats/${chatId}`, { method: "DELETE" }).catch(() => {
+          // Ignore errors - chat might already be deleted or saved with messages
+        });
+      }
+    };
+  }, [props.id, props.initialMessages.length, allMessages.length]);
+
   const canNewChat = status === "ready";
 
   const contextEstimate = useMemo(() => {
@@ -365,6 +381,46 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
       .map((p) => p.text)
       .join("")
       .trim();
+
+  const handleRetryLastMessage = () => {
+    setError(null);
+    const lastMessage = visibleMessages.at(-1);
+    if (!lastMessage) return;
+
+    // If last message is from user, just retry sending
+    if (lastMessage.role === "user") {
+      const parentId = getParentId(lastMessage) ?? ROOT_PARENT_ID;
+      setMessages(visibleMessages);
+      sendMessage(lastMessage, {
+        body: { model, useSearch, mode: "append", parentId },
+      }).catch((e) => {
+        setError(e instanceof Error ? e.message : "Failed to retry message");
+      });
+      return;
+    }
+
+    // If last message is assistant (error during generation), regenerate it
+    if (lastMessage.role === "assistant") {
+      const retryParentUserId = getParentId(lastMessage) ?? null;
+      if (typeof retryParentUserId === "string") {
+        setBranchSelection((prev) => ({
+          ...prev,
+          [parentKeyFromParentId(retryParentUserId)]: 1_000_000_000,
+        }));
+        setMessages(visibleMessages);
+        regenerate({
+          messageId: lastMessage.id,
+          body: {
+            id: props.id,
+            model,
+            useSearch,
+            mode: "regenerate",
+            parentId: retryParentUserId,
+          },
+        });
+      }
+    }
+  };
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background font-sans selection:bg-primary/10 selection:text-primary">
@@ -508,7 +564,33 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
                       };
 
                       if (!hasBranches) {
-                        return renderOne(message);
+                        return (
+                          <div key={message.id} className="flex flex-col">
+                            {renderOne(message)}
+                            {message.role === "user" && !(editingUserMessageId === message.id) && (
+                              <div className="mt-1 ml-auto inline-flex items-center gap-1 text-muted-foreground">
+                                <MessageAction
+                                  label="Copy"
+                                  onClick={() => {
+                                    const t = getTextFromMessage(message);
+                                    if (t) navigator.clipboard.writeText(t);
+                                  }}
+                                >
+                                  <CopyIcon className="size-3.5" />
+                                </MessageAction>
+                                <MessageAction
+                                  label="Edit"
+                                  onClick={() => {
+                                    setEditingUserMessageId(message.id);
+                                    setEditingDraft(getTextFromMessage(message));
+                                  }}
+                                >
+                                  <PencilIcon className="size-3.5" />
+                                </MessageAction>
+                              </div>
+                            )}
+                          </div>
+                        );
                       }
 
                       return (
@@ -567,7 +649,10 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
                   ))
                 )}
 
-                {status === "submitted" && <Loader />}
+                {(status === "submitted" ||
+                  (status === "streaming" && visibleMessages.at(-1)?.role === "user")) && (
+                  <Loader />
+                )}
               </ConversationContent>
               <ConversationScrollButton className="bottom-32" />
             </Conversation>
@@ -575,8 +660,26 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
             {error && (
               <div className="mx-auto mt-4 w-full max-w-3xl animate-fade-in">
                 <Alert variant="destructive">
-                  <AlertDescription className="text-sm font-medium">
-                    {error}
+                  <AlertDescription className="flex items-start justify-between gap-3">
+                    <span className="text-sm font-medium flex-1">{error}</span>
+                    <div className="flex gap-2 shrink-0">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleRetryLastMessage}
+                        className="h-7 text-xs"
+                      >
+                        Retry
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setError(null)}
+                        className="h-7 text-xs"
+                      >
+                        Dismiss
+                      </Button>
+                    </div>
                   </AlertDescription>
                 </Alert>
               </div>

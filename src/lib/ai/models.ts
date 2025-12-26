@@ -78,7 +78,9 @@ export const MODEL_OPTIONS: ModelOption[] = [
   // ──────────────────────────────────────────────────────────────────────
   // Groq provides fast inference for open-source models.
   // Requires GROQ_API_KEY environment variable.
-  { label: "DeepSeek R1 (Groq)", id: "groq/deepseek-r1-distill-llama-70b" },
+  { label: "Kimi K2 (Groq)", id: "groq/moonshotai/kimi-k2-instruct-0905" },
+  { label: "Qwen 3 32B (Groq)", id: "groq/qwen/qwen3-32b" },
+  { label: "Llama 3.3 70B (Groq)", id: "groq/llama-3.3-70b-versatile" },
 
   // ──────────────────────────────────────────────────────────────────────
   // ADD NEW MODELS HERE
