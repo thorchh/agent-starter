@@ -58,7 +58,7 @@ import {
 import { ChatHeader } from "@/components/chat/ChatHeader";
 import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { MessageParts } from "@/components/chat/MessageParts";
-import { BugIcon, CopyIcon, PencilIcon, SearchIcon, MenuIcon, Sparkles } from "lucide-react";
+import { BugIcon, CopyIcon, PencilIcon, SearchIcon, MenuIcon } from "lucide-react";
 import { MODEL_OPTIONS } from "@/lib/ai/models";
 import { OpenAI, Google, Groq, Moonshot, Qwen, Meta } from "@lobehub/icons";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -77,10 +77,10 @@ import {
 } from "@/lib/chat/branching";
 
 const SUGGESTIONS = [
-  "Summarize what you can do.",
-  "What time is it on the server?",
-  "Pick a random city and show the weather (tool).",
-  "Write a TypeScript function and format it as markdown.",
+  "🍓 How many r’s are in strawberry?",
+  "🪐 Explain black holes like I’m five.",
+  "🌍 Pick a random city and its fun fact.",
+  "✨ Give me a surprising angle.",
 ];
 
 export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) {
@@ -434,8 +434,8 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
       />
       <div className="flex h-full w-full flex-1 flex-col overflow-hidden">
         {/* Pinned header (app-like) */}
-        <div className="sticky top-0 z-20 w-full border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
-          <div className="mx-auto w-full max-w-4xl px-4 py-3 md:px-6 flex items-center gap-3">
+        <div className="sticky top-0 z-20 w-full border-b bg-background">
+          <div className="mx-auto w-full max-w-3xl px-4 py-3 md:px-6 flex items-center gap-3">
             <Sheet>
               <SheetTrigger asChild>
                 <button
@@ -456,7 +456,7 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
               canNewChat={canNewChat}
               className="px-0 py-0 flex-1"
               subtitle=""
-              title="Agent Starter"
+              title=""
             />
           </div>
         </div>
@@ -467,32 +467,17 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
               {/* Add bottom padding so the floating input bubble never covers content */}
               <ConversationContent className="gap-8 px-0 py-8 pb-40">
                 {visibleMessages.length === 0 ? (
-                  <div className="flex flex-1 flex-col items-center justify-center gap-10 py-16 text-center animate-fade-in">
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 text-primary">
-                        <Sparkles className="size-8" />
-                      </div>
-                      <div className="space-y-2">
-                        <h2 className="text-2xl font-semibold tracking-tight bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text text-transparent">
-                          How can I help you today?
+                  <div className="flex min-h-[calc(100vh-260px)] w-full flex-col items-center justify-center gap-4 py-12 text-center animate-fade-in">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="text-2xl text-muted-foreground">🌿</div>
+                      <div className="mx-auto max-w-sm space-y-1">
+                        <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                          Start a chat
                         </h2>
-                        <p className="text-muted-foreground text-sm max-w-sm">
-                          Ask me anything or try one of these suggestions to get started.
+                        <p className="text-muted-foreground text-sm">
+                          Ask anything.
                         </p>
                       </div>
-                    </div>
-
-                    <div className="w-full max-w-xl">
-                      <Suggestions>
-                        {SUGGESTIONS.map((text) => (
-                          <Suggestion
-                            key={text}
-                            suggestion={text}
-                            onClick={(s) => setInput(s)}
-                            className="transition-all hover:scale-[1.01] active:scale-[0.99]"
-                          />
-                        ))}
-                      </Suggestions>
                     </div>
                   </div>
                 ) : (
@@ -692,6 +677,33 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
           </div>
         </div>
 
+        {visibleMessages.length === 0 && (
+          <div className="w-full px-4 pb-3">
+            <div className="mx-auto w-full max-w-3xl">
+              <div
+                className="relative"
+                style={{
+                  maskImage:
+                    "linear-gradient(90deg, transparent 0%, black 10%, black 90%, transparent 100%)",
+                  WebkitMaskImage:
+                    "linear-gradient(90deg, transparent 0%, black 10%, black 90%, transparent 100%)",
+                }}
+              >
+                <Suggestions className="py-1">
+                  {SUGGESTIONS.map((text) => (
+                    <Suggestion
+                      key={text}
+                      suggestion={text}
+                      onClick={(s) => setInput(s)}
+                      className="transition-colors"
+                    />
+                  ))}
+                </Suggestions>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Floating input bubble like ChatGPT (no blur / no bottom background). */}
         <div className="z-10 w-full bg-gradient-to-t from-background via-background to-transparent px-4 pb-6 pt-2">
           <div className="mx-auto w-full max-w-3xl">
@@ -814,4 +826,3 @@ export function ChatClient(props: { id: string; initialMessages: UIMessage[] }) 
     </div>
   );
 }
-

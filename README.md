@@ -31,13 +31,6 @@ Perfect for building:
 - **Customer support bots** with contextual awareness
 - **Internal tools** with API integrations
 
-<div align="center">
-
-<!-- Add demo GIF here: .github/images/demo.gif -->
-<img src=".github/images/demo.gif" alt="Live demo" width="800" />
-
-</div>
-
 ## ✨ Features
 
 ### 🎨 **Chat Experience**

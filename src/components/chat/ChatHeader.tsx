@@ -43,8 +43,12 @@ export function ChatHeader({
       {...props}
     >
       <div className="min-w-0 flex flex-col gap-0.5">
-        <div className="truncate font-semibold text-sm tracking-tight">{title}</div>
-        <div className="truncate text-muted-foreground text-[11px] font-medium tracking-wide uppercase opacity-80">{subtitle}</div>
+        <div className="truncate text-[15px] font-semibold tracking-tight text-foreground">
+          {title}
+        </div>
+        <div className="truncate text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">
+          {subtitle}
+        </div>
       </div>
 
       <div className="flex items-center gap-1">
@@ -67,5 +71,4 @@ export function ChatHeader({
     </header>
   );
 }
-
 

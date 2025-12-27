@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import {
   Zap,
@@ -9,7 +10,6 @@ import {
   Workflow,
   Cpu,
   Rocket,
-  PlayCircle,
   Bot
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -138,41 +138,35 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Video/Image Placeholder */}
+          {/* Demo Image */}
           <div className="relative group">
             <Card className="overflow-hidden border-2 border-border/50 shadow-2xl bg-gradient-to-br from-card to-card/50">
-              <div className="aspect-video bg-gradient-to-br from-muted via-muted/50 to-muted/30 flex items-center justify-center relative overflow-hidden">
-                {/* Placeholder content */}
-                <div className="absolute inset-0 bg-grid-white/[0.02]" />
-                <div className="relative z-10 text-center space-y-6 p-8">
-                  <div className="inline-flex items-center justify-center size-20 rounded-2xl bg-primary/10 border-2 border-primary/20 backdrop-blur-sm group-hover:scale-110 transition-transform duration-300">
-                    <PlayCircle className="size-10 text-primary fill-primary/20" />
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-lg font-semibold">Interactive Demo Video</p>
-                    <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                      See multi-step reasoning, tool calling, and streaming responses in real-time
-                    </p>
-                  </div>
-                </div>
-                {/* Replace this div with: <video> or <Image> component */}
+              <div className="aspect-video relative overflow-hidden bg-muted">
+                <Image
+                  src="/chat.png"
+                  alt="Chat interface preview"
+                  fill
+                  className="object-contain"
+                  sizes="(min-width: 1024px) 960px, (min-width: 768px) 90vw, 100vw"
+                  priority
+                />
               </div>
             </Card>
 
             <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
               <Button asChild size="lg" className="font-semibold">
-                <Link href="/chat">
-                  <Rocket className="size-4 mr-2" />
-                  Try live demo
-                </Link>
-              </Button>
-              <Button asChild variant="outline" size="lg" className="font-semibold">
                 <a href="https://github.com/thorchh/agent-starter" target="_blank" rel="noopener noreferrer">
                   <svg role="img" viewBox="0 0 24 24" className="size-4 mr-2 fill-current" xmlns="http://www.w3.org/2000/svg">
                     <path d={siGithub.path} />
                   </svg>
-                  View on GitHub
+                  Clone now
                 </a>
+              </Button>
+              <Button asChild variant="outline" size="lg" className="font-semibold">
+                <Link href="/chat">
+                  <Rocket className="size-4 mr-2" />
+                  Open demo
+                </Link>
               </Button>
             </div>
           </div>

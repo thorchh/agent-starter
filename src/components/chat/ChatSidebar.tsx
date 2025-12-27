@@ -141,30 +141,30 @@ export function ChatSidebar(props: {
     <>
       <aside
         className={cn(
-          "flex h-full w-[280px] flex-col border-r bg-muted/10",
+          "flex h-full w-[280px] flex-col border-r bg-card",
           props.className
         )}
       >
-        <div className="flex items-center justify-between p-4 pb-2">
-          <div className="text-sm font-semibold tracking-tight text-foreground/70">
+        <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
+          <div className="text-sm font-semibold tracking-tight text-foreground">
             Chats
           </div>
           <Button
             onClick={createNewChat}
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
             title="New Chat"
           >
             <PlusIcon className="size-4" />
           </Button>
         </div>
 
-        <div className="px-4 pb-4">
+        <div className="px-4 py-3">
           <div className="relative">
-            <SearchIcon className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground/70" />
+            <SearchIcon className="absolute left-3 top-2.5 size-3.5 text-muted-foreground/70" />
             <input
-              className="w-full rounded-lg border bg-background pl-8 pr-3 py-2 text-sm outline-none placeholder:text-muted-foreground/70 focus:ring-1 focus:ring-ring transition-all"
+              className="w-full rounded-xl border border-border/70 bg-background pl-9 pr-3 py-2 text-sm outline-none placeholder:text-muted-foreground/70 focus:border-border focus:ring-1 focus:ring-foreground/10 transition-all"
               placeholder="Search..."
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
@@ -172,7 +172,7 @@ export function ChatSidebar(props: {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 pb-3 scrollbar-thin scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/40">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 pb-4 scrollbar-thin scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/40">
           {error && (
             <div className="mb-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
               {error}
@@ -201,7 +201,7 @@ export function ChatSidebar(props: {
                 if (group.length === 0) return null;
                 return (
                   <div key={label} className="flex flex-col gap-1">
-                    <div className="px-3 text-xs font-medium text-muted-foreground/50 uppercase tracking-wider mb-1">
+                    <div className="px-3 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wider mb-1">
                       {label}
                     </div>
                     {group.map((c) => {
@@ -210,10 +210,10 @@ export function ChatSidebar(props: {
                         <div
                           key={c.id}
                           className={cn(
-                            "group relative flex items-center gap-2 rounded-lg px-3 py-2.5 transition-colors",
+                            "group relative flex items-center gap-2 rounded-xl px-3 py-2.5 transition-colors",
                             active
-                              ? "bg-primary/10 text-primary"
-                              : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                              ? "bg-muted text-foreground"
+                              : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                           )}
                         >
                           <button
@@ -224,7 +224,7 @@ export function ChatSidebar(props: {
                             <div
                               className={cn(
                                 "truncate text-sm font-medium transition-all duration-200 ease-in-out group-hover:pr-8",
-                                active ? "text-primary" : "text-foreground"
+                                active ? "text-foreground" : "text-foreground"
                               )}
                             >
                               {c.title}
@@ -236,7 +236,7 @@ export function ChatSidebar(props: {
                             className={cn(
                               "absolute right-2 h-7 w-7 p-0 opacity-0 transition-all group-hover:opacity-100",
                               active
-                                ? "text-primary hover:bg-primary/20"
+                                ? "text-foreground hover:bg-background"
                                 : "text-muted-foreground hover:bg-muted hover:text-destructive"
                             )}
                             onClick={(e) => {
