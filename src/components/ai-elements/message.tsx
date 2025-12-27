@@ -6,6 +6,12 @@ import {
   ButtonGroupText,
 } from "@/components/ui/button-group";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -20,9 +26,10 @@ import {
   XIcon,
 } from "lucide-react";
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
-import { createContext, memo, useContext, useEffect, useMemo, useState } from "react";
+import { Children, createContext, memo, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Streamdown } from "streamdown";
 
+// ---- Message layout ----
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"];
 };
@@ -38,6 +45,7 @@ export const Message = ({ className, from, ...props }: MessageProps) => (
   />
 );
 
+// ---- Message content ----
 export type MessageContentProps = HTMLAttributes<HTMLDivElement>;
 
 export const MessageContent = ({
@@ -60,6 +68,7 @@ export const MessageContent = ({
   </div>
 );
 
+// ---- Message actions ----
 export type MessageActionsProps = ComponentProps<"div">;
 
 export const MessageActions = ({
@@ -72,6 +81,7 @@ export const MessageActions = ({
   </div>
 );
 
+// ---- Message action ----
 export type MessageActionProps = ComponentProps<typeof Button> & {
   tooltip?: string;
   label?: string;
@@ -108,6 +118,7 @@ export const MessageAction = ({
   return button;
 };
 
+// ---- Message branch internals ----
 type MessageBranchContextType = {
   currentBranch: number;
   totalBranches: number;
@@ -121,6 +132,7 @@ const MessageBranchContext = createContext<MessageBranchContextType | null>(
   null
 );
 
+// ---- Message branch hook ----
 const useMessageBranch = () => {
   const context = useContext(MessageBranchContext);
 
@@ -133,6 +145,7 @@ const useMessageBranch = () => {
   return context;
 };
 
+// ---- Message branch wrapper ----
 export type MessageBranchProps = HTMLAttributes<HTMLDivElement> & {
   defaultBranch?: number;
   onBranchChange?: (branchIndex: number) => void;
@@ -183,6 +196,7 @@ export const MessageBranch = ({
   );
 };
 
+// ---- Message branch content ----
 export type MessageBranchContentProps = HTMLAttributes<HTMLDivElement>;
 
 export const MessageBranchContent = ({
@@ -213,6 +227,7 @@ export const MessageBranchContent = ({
   ));
 };
 
+// ---- Message branch selector ----
 export type MessageBranchSelectorProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"];
 };
@@ -238,6 +253,7 @@ export const MessageBranchSelector = ({
   );
 };
 
+// ---- Message branch previous ----
 export type MessageBranchPreviousProps = ComponentProps<typeof Button>;
 
 export const MessageBranchPrevious = ({
@@ -261,6 +277,7 @@ export const MessageBranchPrevious = ({
   );
 };
 
+// ---- Message branch next ----
 export type MessageBranchNextProps = ComponentProps<typeof Button>;
 
 export const MessageBranchNext = ({
@@ -285,6 +302,7 @@ export const MessageBranchNext = ({
   );
 };
 
+// ---- Message branch page ----
 export type MessageBranchPageProps = HTMLAttributes<HTMLSpanElement>;
 
 export const MessageBranchPage = ({
@@ -306,6 +324,7 @@ export const MessageBranchPage = ({
   );
 };
 
+// ---- Message response ----
 export type MessageResponseProps = ComponentProps<typeof Streamdown>;
 
 export const MessageResponse = memo(
@@ -323,6 +342,7 @@ export const MessageResponse = memo(
 
 MessageResponse.displayName = "MessageResponse";
 
+// ---- Message attachment ----
 export type MessageAttachmentProps = HTMLAttributes<HTMLDivElement> & {
   data: FileUIPart;
   className?: string;
@@ -364,73 +384,101 @@ export function MessageAttachment({
   const imageUrl = data.url || blobUrl || null;
   const isImage = mediaType.startsWith("image/") && Boolean(imageUrl);
   const attachmentLabel = filename || (isImage ? "Image" : "Attachment");
+  const [open, setOpen] = useState(false);
 
   return (
-    <div
-      className={cn(
-        "group relative size-24 overflow-hidden rounded-lg",
-        className
-      )}
-      {...props}
-    >
-      {isImage ? (
-        <>
-          <img
-            alt={filename || "attachment"}
-            className="size-full object-cover"
-            height={100}
-            src={imageUrl ?? undefined}
-            width={100}
-          />
-          {onRemove && (
-            <Button
-              aria-label="Remove attachment"
-              className="absolute top-2 right-2 size-6 rounded-full bg-background/80 p-0 opacity-0 backdrop-blur-sm transition-opacity hover:bg-background group-hover:opacity-100 [&>svg]:size-3"
-              onClick={(e) => {
-                e.stopPropagation();
-                onRemove();
-              }}
+    <>
+      <div
+        className={cn(
+          "group relative size-24 overflow-hidden rounded-lg",
+          className
+        )}
+        {...props}
+      >
+        {isImage ? (
+          <>
+            <button
               type="button"
-              variant="ghost"
+              className="block size-full cursor-zoom-in"
+              onClick={() => setOpen(true)}
+              aria-label="Open image"
             >
-              <XIcon />
-              <span className="sr-only">Remove</span>
-            </Button>
-          )}
-        </>
-      ) : (
-        <>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex size-full shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                <PaperclipIcon className="size-4" />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{attachmentLabel}</p>
-            </TooltipContent>
-          </Tooltip>
-          {onRemove && (
-            <Button
-              aria-label="Remove attachment"
-              className="size-6 shrink-0 rounded-full p-0 opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100 [&>svg]:size-3"
-              onClick={(e) => {
-                e.stopPropagation();
-                onRemove();
-              }}
-              type="button"
-              variant="ghost"
-            >
-              <XIcon />
-              <span className="sr-only">Remove</span>
-            </Button>
-          )}
-        </>
+              <img
+                alt={filename || "attachment"}
+                className="size-full object-cover"
+                height={100}
+                src={imageUrl ?? undefined}
+                width={100}
+              />
+            </button>
+            {onRemove && (
+              <Button
+                aria-label="Remove attachment"
+                className="absolute top-2 right-2 size-6 rounded-full bg-background/80 p-0 opacity-0 backdrop-blur-sm transition-opacity hover:bg-background group-hover:opacity-100 [&>svg]:size-3"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemove();
+                }}
+                type="button"
+                variant="ghost"
+              >
+                <XIcon />
+                <span className="sr-only">Remove</span>
+              </Button>
+            )}
+          </>
+        ) : (
+          <>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex size-full shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                  <PaperclipIcon className="size-4" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{attachmentLabel}</p>
+              </TooltipContent>
+            </Tooltip>
+            {onRemove && (
+              <Button
+                aria-label="Remove attachment"
+                className="size-6 shrink-0 rounded-full p-0 opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100 [&>svg]:size-3"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemove();
+                }}
+                type="button"
+                variant="ghost"
+              >
+                <XIcon />
+                <span className="sr-only">Remove</span>
+              </Button>
+            )}
+          </>
+        )}
+      </div>
+
+      {isImage && (
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent className="w-[96vw] max-w-[min(96vw,1200px)] sm:max-w-[min(96vw,1400px)]">
+            <DialogHeader>
+              <DialogTitle className="truncate">{attachmentLabel}</DialogTitle>
+            </DialogHeader>
+            <div className="flex max-h-[82vh] items-center justify-center overflow-hidden rounded-xl bg-muted/30">
+              <img
+                alt={attachmentLabel}
+                src={imageUrl ?? undefined}
+                className="max-h-[82vh] w-auto max-w-full object-contain"
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
-    </div>
+    </>
   );
 }
 
+// ---- Message attachments ----
 export type MessageAttachmentsProps = ComponentProps<"div">;
 
 export function MessageAttachments({
@@ -438,23 +486,90 @@ export function MessageAttachments({
   className,
   ...props
 }: MessageAttachmentsProps) {
-  if (!children) {
+  const items = Children.toArray(children).filter(Boolean);
+  const [showAll, setShowAll] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [popupPosition, setPopupPosition] = useState({ top: 0, left: 0 });
+  const MAX_VISIBLE = 3;
+
+  useEffect(() => {
+    if (showAll && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setPopupPosition({
+        top: rect.bottom + 8,
+        left: rect.left,
+      });
+    }
+  }, [showAll]);
+
+  if (!items.length) {
     return null;
   }
 
+  const hasMore = items.length > MAX_VISIBLE;
+  const visibleItems = hasMore ? items.slice(0, MAX_VISIBLE) : items;
+  const remainingCount = Math.max(0, items.length - MAX_VISIBLE);
+
   return (
-    <div
-      className={cn(
-        "ml-auto flex w-fit flex-wrap items-start gap-2",
-        className
+    <>
+      <div
+        className={cn(
+          "ml-auto flex w-fit max-w-full flex-nowrap items-start gap-2 overflow-x-auto",
+          className
+        )}
+        {...props}
+      >
+        {visibleItems}
+        {hasMore && (
+          <button
+            ref={buttonRef}
+            type="button"
+            onClick={() => setShowAll(!showAll)}
+            aria-label={`Show ${remainingCount} more attachments`}
+            className="flex size-24 items-center justify-center rounded-lg border border-dashed text-sm font-medium text-muted-foreground hover:border-muted-foreground hover:text-foreground transition-colors"
+          >
+            +{remainingCount}
+          </button>
+        )}
+      </div>
+
+      {showAll && hasMore && (
+        <>
+          <div
+            className="fixed inset-0 z-50"
+            onClick={() => setShowAll(false)}
+          />
+          <div
+            className="fixed z-50 min-w-[280px] max-w-md rounded-xl border bg-popover p-3 shadow-xl animate-in fade-in-0 zoom-in-95 slide-in-from-top-2"
+            style={{
+              top: `${popupPosition.top}px`,
+              left: `${popupPosition.left}px`,
+            }}
+          >
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-sm font-semibold">
+                All attachments ({items.length})
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowAll(false)}
+                aria-label="Close attachments"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <XIcon className="size-4" />
+              </button>
+            </div>
+            <div className="flex max-h-[300px] flex-col gap-2 overflow-y-auto">
+              {items}
+            </div>
+          </div>
+        </>
       )}
-      {...props}
-    >
-      {children}
-    </div>
+    </>
   );
 }
 
+// ---- Message toolbar ----
 export type MessageToolbarProps = ComponentProps<"div">;
 
 export const MessageToolbar = ({

@@ -523,6 +523,29 @@ export function MessageParts({
     return out;
   }, [sources]);
 
+  type FilePart = Extract<Part, { type: "file" }>;
+
+  const isOmittedFilePart = (file: FilePart) =>
+    typeof file.url === "string" &&
+    (file.url.startsWith("local-storage://omitted") ||
+      file.url.startsWith("omitted://"));
+
+  const shouldHideFilePart = (file: FilePart, index: number) => {
+    const isImage = Boolean(file.mediaType?.startsWith("image/"));
+    return (
+      !debug &&
+      shouldShowThoughtThread &&
+      isImage &&
+      lastThoughtPartIndex !== -1 &&
+      index <= lastThoughtPartIndex
+    );
+  };
+
+  const isStandaloneFilePart = (file: FilePart) => {
+    const isImage = Boolean(file.mediaType?.startsWith("image/"));
+    return isOmittedFilePart(file) || (isImage && message.role === "assistant");
+  };
+
   return (
     <div className={cn("w-full", className)} {...props}>
       {message.parts.map((part: Part, i) => {
@@ -658,52 +681,76 @@ export function MessageParts({
           }
 
           case "file": {
-            // Render file parts as attachments. This keeps them "in-stream" so they
-            // appear exactly where the SDK emitted them.
-            const isOmitted =
-              typeof part.url === "string" &&
-              (part.url.startsWith("local-storage://omitted") ||
-                part.url.startsWith("omitted://"));
+            const filePart = part as FilePart;
 
-            const isImage = Boolean(part.mediaType?.startsWith("image/"));
-
-            // If we're showing the clean thought thread, and this image appeared during
-            // the thought/tool/reasoning phase, render it inside the collapsible thread
-            // instead of duplicating it as a standalone attachment bubble.
-            if (
-              !debug &&
-              shouldShowThoughtThread &&
-              isImage &&
-              lastThoughtPartIndex !== -1 &&
-              i <= lastThoughtPartIndex
-            ) {
+            if (shouldHideFilePart(filePart, i)) {
               return null;
             }
 
+            if (isStandaloneFilePart(filePart)) {
+              return (
+                <Message key={`${message.id}-file-${i}`} from={message.role}>
+                  <MessageAttachments className="mt-3">
+                    {isOmittedFilePart(filePart) ? (
+                      <div className="space-y-2 rounded-lg border bg-muted/20 px-3 py-2">
+                        <div className="flex items-center gap-2 text-sm">
+                          {filePart.mediaType?.startsWith("image/") ? (
+                            <ImageIcon className="size-4 shrink-0" />
+                          ) : filePart.mediaType?.includes("pdf") ? (
+                            <FileTextIcon className="size-4 shrink-0" />
+                          ) : (
+                            <FileIcon className="size-4 shrink-0" />
+                          )}
+                          <span className="truncate">{filePart.filename || "Attachment"}</span>
+                        </div>
+                        <div className="text-muted-foreground text-xs">
+                          Content not persisted. Re-upload to reference after refresh.
+                        </div>
+                      </div>
+                    ) : (
+                      <AssistantImageCard part={filePart} index={i} />
+                    )}
+                  </MessageAttachments>
+                </Message>
+              );
+            }
+
+            let hasPreviousCompact = false;
+            for (let j = i - 1; j >= 0; j--) {
+              const prev = message.parts[j];
+              if (!prev || prev.type !== "file") break;
+              const prevFile = prev as FilePart;
+              if (shouldHideFilePart(prevFile, j)) continue;
+              if (isStandaloneFilePart(prevFile)) break;
+              hasPreviousCompact = true;
+              break;
+            }
+
+            if (hasPreviousCompact) {
+              return null;
+            }
+
+            const attachments: FilePart[] = [];
+            for (let j = i; j < message.parts.length; j++) {
+              const next = message.parts[j];
+              if (!next || next.type !== "file") break;
+              const nextFile = next as FilePart;
+              if (shouldHideFilePart(nextFile, j)) continue;
+              if (isStandaloneFilePart(nextFile)) break;
+              attachments.push(nextFile);
+            }
+
+            if (!attachments.length) return null;
+
             return (
-              <Message key={`${message.id}-file-${i}`} from={message.role}>
+              <Message key={`${message.id}-file-group-${i}`} from={message.role}>
                 <MessageAttachments className="mt-3">
-                  {isOmitted ? (
-                    <div className="space-y-2 rounded-lg border bg-muted/20 px-3 py-2">
-                      <div className="flex items-center gap-2 text-sm">
-                        {part.mediaType?.startsWith("image/") ? (
-                          <ImageIcon className="size-4 shrink-0" />
-                        ) : part.mediaType?.includes("pdf") ? (
-                          <FileTextIcon className="size-4 shrink-0" />
-                        ) : (
-                          <FileIcon className="size-4 shrink-0" />
-                        )}
-                        <span className="truncate">{part.filename || "Attachment"}</span>
-                      </div>
-                      <div className="text-muted-foreground text-xs">
-                        Content not persisted. Re-upload to reference after refresh.
-                      </div>
-                    </div>
-                  ) : isImage && message.role === "assistant" ? (
-                    <AssistantImageCard part={part} index={i} />
-                  ) : (
-                    <MessageAttachment data={part} />
-                  )}
+                  {attachments.map((attachment, attachmentIndex) => (
+                    <MessageAttachment
+                      key={`${message.id}-file-${i}-${attachmentIndex}`}
+                      data={attachment}
+                    />
+                  ))}
                 </MessageAttachments>
               </Message>
             );
@@ -1100,5 +1147,4 @@ export function MessageParts({
     </div>
   );
 }
-
 
