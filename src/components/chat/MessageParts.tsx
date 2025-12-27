@@ -439,11 +439,11 @@ export function MessageParts({
   const shouldShowThoughtThread =
     !debug &&
     message.role === "assistant" &&
-    isLastMessage &&
     (toolParts.length > 0 || hasReasoning);
 
   const autoThoughtOpen =
     shouldShowThoughtThread &&
+    isLastMessage &&
     (status === "submitted" || status === "streaming") &&
     !hasStreamingFinalTextAfterThought;
 
